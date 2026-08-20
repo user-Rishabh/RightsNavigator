@@ -1,6 +1,11 @@
 import json
+import os
+import httpx
+import logging
 from app.database import get_db_connection
 from app.services.pincode_service import lookup_pincode
+
+logger = logging.getLogger("navigator_engine")
 
 # Keyword matcher for quick fallback category detection
 CATEGORY_KEYWORDS = {
@@ -9,8 +14,81 @@ CATEGORY_KEYWORDS = {
     "water_supply": ["water", "tap", "pipeline", "leak", "contamination", "drinking water", "supply", "borewell", "tanker", "dirty water"],
     "consumer_rights": ["consumer", "refund", "defective", "product", "seller", "warranty", "overcharged", "e-commerce", "amazon", "flipkart", "shop", "guarantee"],
     "tenant_rights": ["tenant", "landlord", "rent", "deposit", "eviction", "lease", "flat", "house", "owner", "rent control", "maintenance"],
-    "rti_access": ["rti", "right to information", "tender", "government file", "inspection", "public officer", "fund allocation", "pio", "delay"]
+    "rti_access": ["rti", "right to information", "tender", "government file", "inspection", "public officer", "fund allocation", "pio", "delay"],
+    "electricity_power": ["electricity", "power", "outage", "blackout", "meter", "current", "voltage", "discom", "bescom", "tata power", "transformer", "bill"],
+    "healthcare_patient": ["health", "hospital", "doctor", "medical", "patient", "ambulance", "phc", "medicine", "treatment", "negligence", "admission", "cmo"],
+    "labor_workplace": ["salary", "wage", "employer", "boss", "job", "pf", "epfo", "termination", "posh", "harassment", "overtime", "labour", "workplace"],
+    "education_rte": ["school", "education", "rte", "college", "admission", "capitation fee", "mark sheet", "tc", "student", "teacher", "tuition"],
+    "cyber_telecom": ["cyber", "scam", "fraud", "upi", "bank", "otp", "phishing", "sim", "telecom", "spam", "call drop", "trai", "1930"],
+    "women_elder_rights": ["women", "domestic violence", "senior citizen", "elder", "maintenance", "pension", "abuse", "harassment", "ncw", "181", "elderline"],
+    "real_estate_rera": ["builder", "rera", "possession", "flat booking", "apartment", "developer", "delay", "property", "registry", "landlord builder"]
 }
+
+async def generate_ai_navigation(query: str, loc_info: dict) -> dict | None:
+    """Create tailored guidance from Gemini, using verified location context as guardrails."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return None
+
+    prompt = f"""You are RightsNavigator, an Indian civic-rights assistant. Give tailored, practical guidance for the citizen's exact situation, rather than a generic template.
+
+Citizen's message: {query}
+Verified location context: district={loc_info['district']}, state={loc_info['state']}, jurisdiction={loc_info['type']}, local body={loc_info['body']}, grievance channel={loc_info['portal']}, helpline={loc_info['helpline']}.
+
+Return ONLY valid JSON with this exact schema:
+{{"category_id":"one of potholes_roads,garbage_sanitation,water_supply,consumer_rights,tenant_rights,rti_access,electricity_power,healthcare_patient,labor_workplace,education_rte,cyber_telecom,women_elder_rights,real_estate_rera","category_title":"short tailored title","summary":"2-3 sentence answer specific to the message","applicable_rights":["specific practical right 1","specific practical right 2"],"act_name":"relevant law/rule, or General civic grievance guidance if uncertain","sla_days":7,"compensation_clause":"short cautious note or empty string","steps":[{{"step":1,"title":"...","detail":"..."}},{{"step":2,"title":"...","detail":"..."}},{{"step":3,"title":"...","detail":"..."}}],"dos":["...","..."],"donts":["...","..."]}}
+
+Rules: Use plain Indian English. Adapt advice to the stated incident. Do not invent dates, evidence, authorities, legal sections, compensation amounts, or statutory deadlines. Mention emergency services if there is immediate danger or injury. Give exactly 3 steps, 2-4 dos, and 2-4 don'ts. The provided local body and grievance channel are the only verified local contacts; do not replace them."""
+    try:
+        async with httpx.AsyncClient(timeout=25.0) as client:
+            response = await client.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+                params={"key": api_key},
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {
+                        "temperature": 0.35,
+                        "maxOutputTokens": 4096,
+                        "responseMimeType": "application/json",
+                        "thinkingConfig": {"thinkingBudget": 0},
+                    },
+                },
+            )
+        response.raise_for_status()
+        text = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+        guidance = json.loads(text)
+        required = {"category_id", "category_title", "summary", "act_name", "sla_days", "compensation_clause", "steps", "dos", "donts"}
+        # Models may provide additional useful steps despite the requested count.
+        # Accept any complete roadmap instead of discarding a valid AI response.
+        if not required.issubset(guidance) or not isinstance(guidance["steps"], list) or len(guidance["steps"]) < 3:
+            logger.warning("Gemini response did not contain a complete navigation roadmap")
+            return None
+
+        category_id = guidance["category_id"]
+        if category_id not in CATEGORY_KEYWORDS:
+            category_id = "rti_access"
+
+        return {
+            "query": query,
+            "category_id": category_id,
+            "category_title": str(guidance["category_title"]),
+            "summary": str(guidance["summary"]),
+            "applicable_rights": [str(right) for right in guidance.get("applicable_rights", [])[:4]] if isinstance(guidance.get("applicable_rights", []), list) else [],
+            "location": {
+                "pincode": loc_info["pincode"], "state": loc_info["state"],
+                "district": loc_info["district"], "taluka": loc_info["taluka"],
+                "type": loc_info["type"], "authority": loc_info["body"],
+                "portal": loc_info["portal"], "helpline": loc_info["helpline"],
+            },
+            "act_name": str(guidance["act_name"]),
+            "sla_days": max(1, min(int(guidance["sla_days"]), 365)),
+            "compensation_clause": str(guidance["compensation_clause"]),
+            "steps": guidance["steps"], "dos": guidance["dos"], "donts": guidance["donts"],
+            "action_buttons": [], "source": "gemini",
+        }
+    except (httpx.HTTPError, KeyError, ValueError, TypeError, json.JSONDecodeError, OverflowError) as exc:
+        logger.warning("Gemini navigation generation failed: %s", exc)
+        return None
 
 async def analyze_citizen_problem(query: str, pincode: str = "560001") -> dict:
     query_lower = query.lower()
@@ -18,6 +96,12 @@ async def analyze_citizen_problem(query: str, pincode: str = "560001") -> dict:
     # 1. Fetch location details
     loc_info = await lookup_pincode(pincode)
     is_rural = loc_info["type"] == "Rural"
+
+    # Use a model-generated answer whenever Gemini is configured. The rules below
+    # remain a safe offline fallback if the model is unavailable.
+    ai_response = await generate_ai_navigation(query, loc_info)
+    if ai_response:
+        return ai_response
 
     # 2. Determine category
     matched_cat = "potholes_roads"  # default
@@ -235,6 +319,7 @@ async def analyze_citizen_problem(query: str, pincode: str = "560001") -> dict:
         "category_id": matched_cat,
         "category_title": title,
         "summary": summary,
+        "applicable_rights": [f"Right to pursue a grievance with {target_authority}", "Right to retain evidence and request a written response"],
         "location": {
             "pincode": loc_info["pincode"],
             "state": loc_info["state"],

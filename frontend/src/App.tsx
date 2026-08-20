@@ -15,6 +15,7 @@ export const App: React.FC = () => {
   const [caseCount, setCaseCount] = useState(0);
   const [suggestedPrompt, setSuggestedPrompt] = useState('');
   const [navigationRequest, setNavigationRequest] = useState(0);
+  const [isLightMode, setIsLightMode] = useState(() => localStorage.getItem('rights-navigator-theme') === 'light');
 
   // Document Draft Modal State
   const [showDraftModal, setShowDraftModal] = useState(false);
@@ -34,6 +35,10 @@ export const App: React.FC = () => {
       .catch((err) => console.error(err));
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem('rights-navigator-theme', isLightMode ? 'light' : 'dark');
+  }, [isLightMode]);
+
   const handleOpenDraftModal = (docType: string, prefillData: any) => {
     setDraftDocType(docType);
     setDraftPrefill(prefillData);
@@ -51,7 +56,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#090d16] text-slate-100 font-sans selection:bg-blue-600 selection:text-white">
+    <div className={`min-h-screen flex flex-col bg-[#050505] text-slate-100 font-sans selection:bg-blue-600 selection:text-white ${isLightMode ? 'light-theme' : ''}`}>
       {/* Navigation Header */}
       <Header
         activeTab={activeTab}
@@ -59,6 +64,8 @@ export const App: React.FC = () => {
         pincodeInfo={pincodeInfo}
         onOpenPincodeModal={() => setShowPincodeModal(true)}
         caseCount={caseCount}
+        isLightMode={isLightMode}
+        onToggleTheme={() => setIsLightMode((current) => !current)}
       />
 
       {/* Main Content Area */}
@@ -88,7 +95,7 @@ export const App: React.FC = () => {
 
       {/* PIN Code Lookup Modal */}
       {showPincodeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="w-full max-w-xl">
             <PincodeWidget
               currentPincode={pincodeInfo}

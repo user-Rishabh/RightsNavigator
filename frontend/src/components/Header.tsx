@@ -1,5 +1,5 @@
 import React from 'react';
-import { Scale, MapPin, ShieldCheck, FileCheck, Layers, Users, Sparkles } from 'lucide-react';
+import { Scale, MapPin, FileCheck, Layers, Users, Sparkles, Moon, Sun } from 'lucide-react';
 import { PincodeInfo } from '../types';
 
 interface HeaderProps {
@@ -8,6 +8,8 @@ interface HeaderProps {
   pincodeInfo: PincodeInfo | null;
   onOpenPincodeModal: () => void;
   caseCount: number;
+  isLightMode: boolean;
+  onToggleTheme: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,9 +18,11 @@ export const Header: React.FC<HeaderProps> = ({
   pincodeInfo,
   onOpenPincodeModal,
   caseCount,
+  isLightMode,
+  onToggleTheme,
 }) => {
   return (
-    <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/80">
+    <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.28)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           
@@ -32,11 +36,8 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="font-extrabold text-xl tracking-tight text-white font-['Outfit']">
                   Rights<span className="text-blue-400">Navigator</span>
                 </span>
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase tracking-widest">
-                  AI 4.0
-                </span>
               </div>
-              <p className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+              <p className="hidden" aria-hidden="true">
                 <span>OOSC 4.0 Hackathon</span>
                 <span className="text-slate-600">•</span>
                 <span className="text-blue-300/80 flex items-center gap-1">
@@ -47,7 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Navigation Links */}
-          <nav className="hidden md:flex items-center space-x-1 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
+          <nav className="hidden md:flex items-center space-x-1 bg-white/[0.045] p-1.5 rounded-2xl border border-white/10">
             <button
               onClick={() => setActiveTab('chat')}
               className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
@@ -93,26 +94,30 @@ export const Header: React.FC<HeaderProps> = ({
           {/* PIN Code & Location Badge */}
           <div className="flex items-center space-x-3">
             <button
+              type="button"
+              onClick={onToggleTheme}
+              aria-label={isLightMode ? 'Switch to dark mode' : 'Switch to light mode'}
+              title={isLightMode ? 'Switch to dark mode' : 'Switch to light mode'}
+              className="theme-toggle w-10 h-10 rounded-xl bg-white/[0.045] border border-white/10 text-slate-200 hover:border-blue-500/50 hover:bg-white/[0.08] transition-all flex items-center justify-center"
+            >
+              {isLightMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            </button>
+            <button
               onClick={onOpenPincodeModal}
-              className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700/70 text-slate-200 hover:border-blue-500/50 hover:bg-slate-850 transition-all text-xs font-semibold shadow-inner"
+              className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-white/[0.045] border border-white/10 text-slate-200 hover:border-blue-500/50 hover:bg-white/[0.08] transition-all text-xs font-semibold shadow-inner"
             >
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
               <MapPin className="w-3.5 h-3.5 text-blue-400" />
               <span>
                 {pincodeInfo ? (
                   <>
-                    <strong className="text-white">{pincodeInfo.pincode}</strong> ({pincodeInfo.type})
+                    <strong className="text-white">{pincodeInfo.district}</strong>
                   </>
                 ) : (
-                  'Set PIN Code'
+                  'Set Location / PIN Code'
                 )}
               </span>
             </button>
-
-            <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-purple-950/40 border border-purple-800/40 text-purple-300 text-xs font-medium">
-              <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
-              <span>PS3 Track</span>
-            </div>
           </div>
 
         </div>

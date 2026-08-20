@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Construction, Trash2, Droplets, ShoppingBag, Home, FileText, Clock, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { 
+  Construction, Trash2, Droplets, ShoppingBag, Home, FileText, 
+  Zap, HeartPulse, Briefcase, GraduationCap, ShieldAlert, HeartHandshake, Building2,
+  Clock, ArrowRight, ShieldCheck 
+} from 'lucide-react';
 import { CategoryItem } from '../types';
 
 interface RightsCatalogProps {
@@ -13,6 +17,13 @@ const ICON_MAP: Record<string, any> = {
   ShoppingBag: ShoppingBag,
   Home: Home,
   FileText: FileText,
+  Zap: Zap,
+  HeartPulse: HeartPulse,
+  Briefcase: Briefcase,
+  GraduationCap: GraduationCap,
+  ShieldAlert: ShieldAlert,
+  HeartHandshake: HeartHandshake,
+  Building2: Building2,
 };
 
 export const RightsCatalog: React.FC<RightsCatalogProps> = ({ onSelectCategory }) => {

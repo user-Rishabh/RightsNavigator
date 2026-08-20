@@ -4,8 +4,8 @@
 
 @layer base {
   body {
-    background-color: #090d16;
-    color: #f1f5f9;
+    background-color: #050505;
+    color: #f5f5f5;
     min-width: 320px;
   }
 }
@@ -19,28 +19,29 @@ body::after {
   height: 42rem;
   border-radius: 9999px;
   filter: blur(110px);
-  opacity: 0.13;
+  opacity: 0.09;
   pointer-events: none;
 }
 
 body::before {
   top: -20rem;
   left: -15rem;
-  background: #2563eb;
+  background: #164e9b;
 }
 
 body::after {
   right: -20rem;
   bottom: -24rem;
-  background: #7c3aed;
+  background: #3b1a73;
 }
 
 /* Glassmorphism Cards */
 .glass-card {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(16px);
+  background: linear-gradient(145deg, rgba(19, 19, 21, 0.94), rgba(8, 8, 9, 0.96));
+  backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 16px 40px rgba(0, 0, 0, 0.28);
 }
 
 .glass-card-hover {
@@ -48,15 +49,15 @@ body::after {
 }
 
 .glass-card-hover:hover {
-  background: rgba(30, 41, 59, 0.85);
-  border-color: rgba(59, 130, 246, 0.35);
+  background: linear-gradient(145deg, rgba(29, 29, 32, 0.98), rgba(11, 11, 12, 0.98));
+  border-color: rgba(96, 165, 250, 0.48);
   transform: translateY(-2px);
   box-shadow: 0 12px 30px -10px rgba(37, 99, 235, 0.25);
 }
 
 .glass-input {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(5, 5, 5, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(8px);
 }
 
@@ -90,14 +91,95 @@ body::after {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.8);
+  background: #080808;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.8);
+  background: #303035;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #3b82f6;
+}
+
+/* Light mode retains the interface's blue accents while replacing the canvas
+   and elevated surfaces with clean, warm whites. */
+.light-theme {
+  background: #f7f7f5 !important;
+  color: #171717;
+}
+
+.light-theme::before,
+.light-theme::after {
+  opacity: 0.045;
+}
+
+.light-theme .glass-card {
+  background: linear-gradient(145deg, #ffffff, #f4f4f2);
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.light-theme .glass-card-hover:hover {
+  background: #ffffff;
+  box-shadow: 0 16px 34px rgba(37, 99, 235, 0.12);
+}
+
+.light-theme .glass-input {
+  background: #ffffff;
+  border-color: #d4d4d8;
+  color: #18181b;
+}
+
+.light-theme header {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+.light-theme footer {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+.light-theme header .bg-white\/\[0\.045\],
+.light-theme .theme-toggle {
+  background: #f4f4f5 !important;
+  border-color: #d4d4d8 !important;
+  color: #27272a !important;
+}
+
+.light-theme .text-slate-100,
+.light-theme .text-slate-200,
+.light-theme .text-slate-300,
+.light-theme .text-white {
+  color: #18181b;
+}
+
+.light-theme .bg-blue-600 .text-white,
+.light-theme .bg-gradient-to-r .text-white,
+.light-theme .bg-gradient-to-tr .text-white {
+  color: #ffffff;
+}
+
+.light-theme .text-slate-400,
+.light-theme .text-slate-500,
+.light-theme .text-slate-600 {
+  color: #52525b;
+}
+
+.light-theme .bg-slate-900,
+.light-theme .bg-slate-900\/80,
+.light-theme .bg-slate-900\/90,
+.light-theme .bg-slate-950,
+.light-theme .bg-slate-950\/70,
+.light-theme .bg-slate-950\/80 {
+  background-color: #ffffff !important;
+}
+
+.light-theme .border-slate-800,
+.light-theme .border-slate-800\/80,
+.light-theme .border-slate-800\/90,
+.light-theme .border-slate-900 {
+  border-color: #e4e4e7 !important;
 }

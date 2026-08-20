@@ -5,7 +5,7 @@ import json
 import uuid
 
 from app.database import get_db_connection
-from app.services.pincode_service import lookup_pincode
+from app.services.pincode_service import lookup_pincode, search_locations
 from app.services.navigator_engine import analyze_citizen_problem
 from app.services.document_generator import generate_rti_application, generate_legal_notice, generate_ai_draft
 
@@ -40,11 +40,15 @@ def health_check():
     return {"status": "online", "system": "RightsNavigator AI Backend", "version": "1.0.0"}
 
 @router.get("/pincode/{pincode}")
-async def pincode_lookup(pincode: str):
+async def pincode_lookup(pincode: str, locality: str = "", is_village: bool = False):
     if not pincode or len(pincode.strip()) < 3:
         raise HTTPException(status_code=400, detail="Invalid PIN code format")
-    info = await lookup_pincode(pincode.strip())
+    info = await lookup_pincode(pincode.strip(), locality.strip(), is_village)
     return info
+
+@router.get("/locations/search")
+async def location_search(q: str = Query(..., min_length=2, max_length=100)):
+    return {"suggestions": await search_locations(q)}
 
 @router.post("/navigator/chat")
 async def chat_navigator(req: ChatRequest):

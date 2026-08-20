@@ -35,7 +35,10 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
   const [error, setError] = useState('');
 
   const handleSubmit = async (userPrompt: string) => {
-    if (!userPrompt || userPrompt.trim().length < 3) return;
+    if (!userPrompt || userPrompt.trim().length < 12) {
+      setError('Please describe what happened in a little more detail so the AI can give useful guidance.');
+      return;
+    }
     setLoading(true);
     setSavedCaseId(null);
     setError('');
@@ -114,7 +117,7 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
       </div>
 
       {/* PIN Code Location Context Alert Bar */}
-      <div className="glass-card rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-slate-800">
+      <div className="hidden" aria-hidden="true">
         <div className="flex items-center space-x-3">
           <div className="p-2.5 rounded-xl bg-blue-600/20 text-blue-400">
             <MapPin className="w-5 h-5" />
@@ -259,6 +262,20 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
             </div>
 
             <p className="text-sm text-slate-300 leading-relaxed font-medium">{response.summary}</p>
+
+            {response.applicable_rights?.length > 0 && (
+              <div className="rounded-2xl bg-blue-600/10 border border-blue-500/20 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-blue-300 mb-2">Rights identified for your situation</p>
+                <ul className="space-y-1.5">
+                  {response.applicable_rights.map((right, index) => (
+                    <li key={index} className="text-sm text-slate-200 flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
+                      {right}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Applicable Law & Compensation Clause */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">

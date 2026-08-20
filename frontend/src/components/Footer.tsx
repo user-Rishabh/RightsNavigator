@@ -3,7 +3,7 @@ import { Scale, Heart, ShieldCheck, Github, ExternalLink } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="border-t border-slate-800/80 bg-slate-950 mt-auto py-8">
+    <footer className="border-t border-white/10 bg-black mt-auto py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -19,7 +19,7 @@ export const Footer: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6 text-xs text-slate-400">
+          <div className="hidden" aria-hidden="true">
             <span className="flex items-center gap-1.5 text-blue-300">
               <ShieldCheck className="w-4 h-4 text-blue-400" />
               <strong>OOSC 4.0 Hackathon</strong> — Track PS3
@@ -33,8 +33,6 @@ export const Footer: React.FC = () => {
         <div className="pt-6 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
           <p>© 2026 RightsNavigator AI. Open-source civic empowerment tool.</p>
           <div className="flex items-center space-x-4">
-            <span className="hover:text-slate-300 transition-colors">FastAPI + React + Vite + TypeScript</span>
-            <span>•</span>
             <span className="hover:text-slate-300 transition-colors">Consumer Protection Act 2019 & RTI 2005</span>
           </div>
         </div>

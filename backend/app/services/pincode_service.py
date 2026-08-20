@@ -21,7 +21,79 @@ PINCODE_KNOWLEDGE = {
     "141001": {"state": "Punjab", "district": "Ludhiana", "taluka": "Ludhiana West", "type": "Urban", "body": "Municipal Corporation Ludhiana", "ward": "Zone A", "portal": "mSeva Punjab Portal", "helpline": "1800-180-2468"}
 }
 
-async def lookup_pincode(pincode: str) -> dict:
+# Frequently searched neighbourhoods supplement India Post's post-office search.
+# They make familiar locality names useful even when they are not a post-office name.
+LOCATION_ALIASES = [
+    {"name": "Maitri Park", "area": "Chembur, Mumbai, Maharashtra", "pincode": "400071", "is_village": False},
+    {"name": "Punewadi", "area": "Ahmednagar, Maharashtra", "pincode": "414303", "is_village": True},
+    {"name": "Bandra West", "area": "Mumbai, Maharashtra", "pincode": "400050", "is_village": False},
+    {"name": "Andheri East", "area": "Mumbai, Maharashtra", "pincode": "400069", "is_village": False},
+    {"name": "Koramangala", "area": "Bengaluru, Karnataka", "pincode": "560034", "is_village": False},
+    {"name": "Indiranagar", "area": "Bengaluru, Karnataka", "pincode": "560038", "is_village": False},
+    {"name": "Connaught Place", "area": "New Delhi, Delhi", "pincode": "110001", "is_village": False},
+]
+
+async def search_locations(query: str) -> list[dict]:
+    """Return map-style Indian place suggestions with a PIN code for selection."""
+    search = " ".join(query.lower().split())
+    if len(search) < 2:
+        return []
+
+    # Match words individually so minor spacing/typing differences still find an area.
+    words = set(search.replace(",", " ").split())
+    matches = [
+        item for item in LOCATION_ALIASES
+        if words & set(f"{item['name']} {item['area']}".lower().replace(",", " ").split())
+    ]
+
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            # Nominatim searches landmarks, colleges, roads, villages and neighbourhoods,
+            # rather than limiting citizens to India Post office names.
+            map_response = await client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"q": f"{query.strip()}, India", "format": "jsonv2", "addressdetails": 1, "countrycodes": "in", "limit": 8},
+                headers={"User-Agent": "RightsNavigator/1.0 (civic location search)"},
+            )
+            if map_response.status_code == 200:
+                for place in map_response.json():
+                    address = place.get("address", {})
+                    pincode = address.get("postcode", "").split("-")[0].strip()
+                    if not (pincode.isdigit() and len(pincode) == 6):
+                        continue
+                    name = place.get("name") or place.get("display_name", "").split(",")[0]
+                    area_parts = []
+                    for key in ("suburb", "city_district", "city", "town", "village", "county", "state"):
+                        value = address.get(key)
+                        if value and value not in area_parts and value != name:
+                            area_parts.append(value)
+                    item = {
+                        "name": name,
+                        "area": ", ".join(area_parts[:3]) or place.get("display_name", ""),
+                        "pincode": pincode,
+                        "is_village": bool(address.get("village") or address.get("hamlet")),
+                    }
+                    if not any(existing["pincode"] == item["pincode"] and existing["name"].lower() == item["name"].lower() for existing in matches):
+                        matches.append(item)
+
+            response = await client.get(f"https://api.postalpincode.in/postoffice/{query.strip()}")
+            data = response.json() if response.status_code == 200 else []
+            if data and data[0].get("Status") == "Success":
+                for office in data[0].get("PostOffice", [])[:6]:
+                    item = {
+                        "name": office.get("Name", "Locality"),
+                        "area": ", ".join(filter(None, [office.get("Block"), office.get("District"), office.get("State")])),
+                        "pincode": office.get("Pincode", ""),
+                        "is_village": "branch" in office.get("BranchType", "").lower() or "village" in office.get("Name", "").lower(),
+                    }
+                    if item["pincode"] and not any(existing["pincode"] == item["pincode"] and existing["name"] == item["name"] for existing in matches):
+                        matches.append(item)
+    except Exception as exc:
+        logger.warning(f"Location search failed: {exc}")
+
+    return matches[:10]
+
+async def lookup_pincode(pincode: str, locality: str = "", is_village: bool = False) -> dict:
     clean_code = pincode.strip()
     
     # 1. Direct match in curated knowledge base
@@ -29,6 +101,14 @@ async def lookup_pincode(pincode: str) -> dict:
         info = PINCODE_KNOWLEDGE[clean_code].copy()
         info["pincode"] = clean_code
         info["source"] = "Verified Local Authorities DB"
+        if locality and is_village:
+            info.update({
+                "type": "Rural",
+                "body": f"{locality} Gram Panchayat / {info['district']} Zilla Parishad",
+                "ward": f"{locality} Village Gram Sabha",
+                "portal": "e-GramSwaraj Portal (egramswaraj.gov.in) & CPGRAMS",
+                "helpline": "1800-180-2000 (Panchayati Raj)",
+            })
         return info
 
     # 2. Try online Indian Postal API (api.postalpincode.in)
@@ -40,18 +120,18 @@ async def lookup_pincode(pincode: str) -> dict:
                 if data and data[0].get("Status") == "Success":
                     offices = data[0].get("PostOffice", [])
                     if offices:
-                        first_office = offices[0]
+                        first_office = next((office for office in offices if locality and locality.lower() in office.get("Name", "").lower()), offices[0])
                         district = first_office.get("District", "District")
                         state = first_office.get("State", "State")
                         taluka = first_office.get("Block", first_office.get("Division", "Taluka"))
                         branch_type = first_office.get("BranchType", "")
                         
                         # Determine Urban vs Rural based on office name & branch type
-                        is_rural = "Branch Office" in branch_type or "BO" in branch_type or any(kw in first_office.get("Name", "").lower() for kw in ["village", "gaon", "pally", "kheda", "pur", "gram"])
+                        is_rural = is_village or "Branch Office" in branch_type or "BO" in branch_type or any(kw in first_office.get("Name", "").lower() for kw in ["village", "gaon", "pally", "kheda", "pur", "gram"])
                         loc_type = "Rural" if is_rural else "Urban"
 
                         if is_rural:
-                            body = f"{taluka} Gram Panchayat / {district} Zilla Parishad"
+                            body = f"{locality} Gram Panchayat / {district} Zilla Parishad" if locality else f"{taluka} Gram Panchayat / {district} Zilla Parishad"
                             portal = "e-GramSwaraj Portal (egramswaraj.gov.in) & CPGRAMS"
                             helpline = "1800-180-2000 (Panchayati Raj)"
                         else:
@@ -66,7 +146,7 @@ async def lookup_pincode(pincode: str) -> dict:
                             "taluka": taluka,
                             "type": loc_type,
                             "body": body,
-                            "ward": f"{first_office.get('Name')} Division",
+                            "ward": f"{locality or first_office.get('Name')} Village Gram Sabha" if is_rural else f"{first_office.get('Name')} Division",
                             "portal": portal,
                             "helpline": helpline,
                             "source": "India Post API Live Lookup"
@@ -89,11 +169,11 @@ async def lookup_pincode(pincode: str) -> dict:
     region, label = region_map.get(digit, ("India", "National Region"))
 
     # Heuristic for urban vs rural based on last digits
-    is_rural = int(clean_code[-2:]) > 50 if clean_code.isdigit() and len(clean_code) == 6 else False
+    is_rural = is_village or (int(clean_code[-2:]) > 50 if clean_code.isdigit() and len(clean_code) == 6 else False)
     loc_type = "Rural" if is_rural else "Urban"
 
     if loc_type == "Rural":
-        body = f"Gram Panchayat & Block Development Office (BDO)"
+        body = f"{locality} Gram Panchayat / District Zilla Parishad" if locality else "Gram Panchayat & Block Development Office (BDO)"
         portal = "e-GramSwaraj & State Jan Seva Portal"
         helpline = "1800-180-2000"
     else:
@@ -108,7 +188,7 @@ async def lookup_pincode(pincode: str) -> dict:
         "taluka": f"Taluka Centre",
         "type": loc_type,
         "body": body,
-        "ward": f"Ward / Area Jurisdiction {clean_code[-3:]}",
+        "ward": f"{locality} Village Gram Sabha" if is_village else f"Ward / Area Jurisdiction {clean_code[-3:]}",
         "portal": portal,
         "helpline": helpline,
         "source": "Smart Geographic Heuristic Engine"

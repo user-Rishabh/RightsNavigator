@@ -29,6 +29,7 @@ export interface NavigatorResponse {
   category_id: string;
   category_title: string;
   summary: string;
+  applicable_rights: string[];
   location: {
     pincode: string;
     state: string;

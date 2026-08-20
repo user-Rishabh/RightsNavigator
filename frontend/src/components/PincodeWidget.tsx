@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MapPin, Building2, Trees, Phone, Globe, CheckCircle2, Search, X } from 'lucide-react';
 import { PincodeInfo } from '../types';
 
@@ -16,6 +16,13 @@ const POPULAR_PRESETS = [
   { code: '273001', label: 'Gorakhpur (Nagar Nigam & Block)', type: 'Semi-Urban' },
 ];
 
+interface LocationSuggestion {
+  name: string;
+  area: string;
+  pincode: string;
+  is_village?: boolean;
+}
+
 export const PincodeWidget: React.FC<PincodeWidgetProps> = ({
   currentPincode,
   onSelectPincode,
@@ -24,17 +31,44 @@ export const PincodeWidget: React.FC<PincodeWidgetProps> = ({
   const [inputCode, setInputCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [searchingLocations, setSearchingLocations] = useState(false);
 
-  const fetchPincode = async (code: string) => {
+  useEffect(() => {
+    const query = inputCode.trim();
+    if (query.length < 2 || /^\d+$/.test(query)) {
+      setSuggestions([]);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setSearchingLocations(true);
+      try {
+        const response = await fetch(`/api/locations/search?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+        setSuggestions(data.suggestions || []);
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setSearchingLocations(false);
+      }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [inputCode]);
+
+  const fetchPincode = async (code: string, locality = '', isVillage = false) => {
     if (!code || code.trim().length !== 6 || isNaN(Number(code))) {
-      setError('Please enter a valid 6-digit Indian PIN Code');
+      setError('Please choose a location from the matching suggestions.');
       return;
     }
     setLoading(true);
     setError('');
 
     try {
-      const res = await fetch(`/api/pincode/${code.trim()}`);
+      const params = new URLSearchParams();
+      if (locality) params.set('locality', locality);
+      if (isVillage) params.set('is_village', 'true');
+      const res = await fetch(`/api/pincode/${code.trim()}${params.size ? `?${params}` : ''}`);
       if (!res.ok) throw new Error('PIN Code lookup failed');
       const data: PincodeInfo = await res.json();
       onSelectPincode(data);
@@ -47,11 +81,11 @@ export const PincodeWidget: React.FC<PincodeWidgetProps> = ({
         state: 'Karnataka / State Jurisdiction',
         district: 'District Office',
         taluka: 'Taluka Jurisdiction',
-        type: Number(code.slice(-2)) > 50 ? 'Rural' : 'Urban',
-        body: Number(code.slice(-2)) > 50 ? 'Gram Panchayat & BDO' : 'Municipal Corporation PWD',
-        ward: 'Ward 10',
-        portal: 'State Public Grievance Portal & CPGRAMS',
-        helpline: '1916 / 1800-180-2000'
+        type: isVillage || Number(code.slice(-2)) > 50 ? 'Rural' : 'Urban',
+        body: isVillage ? `${locality} Gram Panchayat / District Zilla Parishad` : (Number(code.slice(-2)) > 50 ? 'Gram Panchayat & BDO' : 'Municipal Corporation PWD'),
+        ward: isVillage ? `${locality} Village Gram Sabha` : 'Ward 10',
+        portal: isVillage ? 'e-GramSwaraj Portal & CPGRAMS' : 'State Public Grievance Portal & CPGRAMS',
+        helpline: isVillage ? '1800-180-2000 (Panchayati Raj)' : '1916 / 1800-180-2000'
       });
       if (onClose) onClose();
     } finally {
@@ -62,6 +96,12 @@ export const PincodeWidget: React.FC<PincodeWidgetProps> = ({
   const handlePresetClick = (code: string) => {
     setInputCode(code);
     fetchPincode(code);
+  };
+
+  const selectLocation = (location: LocationSuggestion) => {
+    setInputCode(location.pincode);
+    setSuggestions([]);
+    fetchPincode(location.pincode, location.name, Boolean(location.is_village));
   };
 
   return (
@@ -85,7 +125,7 @@ export const PincodeWidget: React.FC<PincodeWidgetProps> = ({
         <div>
           <h3 className="text-lg font-bold text-white font-['Outfit']">Location & Jurisdiction Detector</h3>
           <p className="text-xs text-slate-400">
-            Enter your 6-digit Indian PIN Code to adapt recommendations for <span className="text-emerald-400 font-semibold">Urban Municipalities</span> vs <span className="text-amber-400 font-semibold">Rural Gram Panchayats</span>.
+            Search your locality, landmark, town or village to adapt recommendations for <span className="text-emerald-400 font-semibold">Urban Municipalities</span> vs <span className="text-amber-400 font-semibold">Rural Gram Panchayats</span>.
           </p>
         </div>
       </div>
@@ -94,17 +134,16 @@ export const PincodeWidget: React.FC<PincodeWidgetProps> = ({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          fetchPincode(inputCode);
+          setError('Choose one of the matching locations below to set your jurisdiction.');
         }}
         className="flex gap-2 mb-4"
       >
         <div className="relative flex-1">
           <input
             type="text"
-            maxLength={6}
             value={inputCode}
             onChange={(e) => setInputCode(e.target.value)}
-            placeholder="Enter 6-digit PIN Code (e.g. 560001)"
+            placeholder="Search a locality, village, landmark or city"
             className="w-full px-4 py-3 rounded-2xl glass-input text-white text-sm font-semibold tracking-wider placeholder:text-slate-500"
           />
         </div>
@@ -118,15 +157,37 @@ export const PincodeWidget: React.FC<PincodeWidgetProps> = ({
           ) : (
             <Search className="w-4 h-4" />
           )}
-          <span>Detect</span>
+          <span>Search</span>
         </button>
       </form>
+
+      {(suggestions.length > 0 || searchingLocations) && (
+        <div className="mb-4 rounded-2xl border border-slate-700 bg-slate-950/80 overflow-hidden">
+          <p className="px-4 py-2 text-xs font-semibold text-slate-400 border-b border-slate-800">
+            {searchingLocations ? 'Searching matching places…' : `${suggestions.length} matching location${suggestions.length === 1 ? '' : 's'} — choose one`}
+          </p>
+          {suggestions.map((location) => (
+            <button
+              key={`${location.name}-${location.pincode}`}
+              type="button"
+              onClick={() => selectLocation(location)}
+              className="w-full px-4 py-3 text-left hover:bg-slate-800/80 transition-colors flex items-center gap-3"
+            >
+              <MapPin className="w-4 h-4 text-blue-400 shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-white">{location.name}</span>
+                <span className="block text-xs text-slate-400 truncate">{location.area}{location.is_village ? ' · Village Gram Panchayat' : ''}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && <p className="text-xs text-rose-400 mb-3">{error}</p>}
 
       {/* Preset Chips */}
       <div className="mb-5">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Popular Regions:</p>
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Popular Locations:</p>
         <div className="flex flex-wrap gap-2">
           {POPULAR_PRESETS.map((p) => (
             <button
@@ -138,8 +199,7 @@ export const PincodeWidget: React.FC<PincodeWidgetProps> = ({
                   : 'bg-slate-800/60 border-slate-700/60 text-slate-300 hover:border-slate-500'
               }`}
             >
-              <span className="font-bold text-white">{p.code}</span>
-              <span className="text-slate-400">• {p.label}</span>
+              <span className="text-slate-300">{p.label}</span>
             </button>
           ))}
         </div>
@@ -150,8 +210,8 @@ export const PincodeWidget: React.FC<PincodeWidgetProps> = ({
         <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 space-y-3">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <div className="flex items-center space-x-2">
-              <span className="text-xl font-extrabold text-white font-mono">{currentPincode.pincode}</span>
-              <span className="text-xs text-slate-400">({currentPincode.district}, {currentPincode.state})</span>
+              <span className="text-lg font-extrabold text-white">{currentPincode.district}</span>
+              <span className="text-xs text-slate-400">({currentPincode.state})</span>
             </div>
             <span
               className={`px-3 py-1 rounded-full text-xs font-extrabold flex items-center gap-1 border ${
