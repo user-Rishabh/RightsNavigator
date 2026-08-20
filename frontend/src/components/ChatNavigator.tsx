@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Send, MapPin, CheckCircle2, AlertTriangle, FileText, Mail, Clock, ArrowRight, ShieldCheck, HelpCircle, RefreshCw, BookmarkPlus } from 'lucide-react';
+import { Sparkles, Send, MapPin, CheckCircle2, AlertTriangle, FileText, Mail, Clock, ArrowRight, ShieldCheck, RefreshCw, BookmarkPlus } from 'lucide-react';
 import { NavigatorResponse, PincodeInfo } from '../types';
 
 interface ChatNavigatorProps {
@@ -104,14 +104,14 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
     <div className="space-y-8 max-w-5xl mx-auto">
       {/* Hero Header */}
       <div className="text-center space-y-3 pt-4">
-        <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest">
-          <Sparkles className="w-3.5 h-3.5" />
+        <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 border border-primary/20 bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider rounded-md shadow-sm">
+          <Sparkles className="w-3.5 h-3.5 text-accent" />
           <span>AI Citizen Rights & Grievance Engine</span>
         </div>
-        <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight font-['Outfit']">
+        <h1 className="text-4xl sm:text-5xl font-bold text-txtprimary tracking-tight font-display">
           Translate Bureaucracy into <span className="text-gradient">Guided Action</span>
         </h1>
-        <p className="text-base text-slate-400 max-w-2xl mx-auto">
+        <p className="text-base text-txtsecondary max-w-2xl mx-auto font-normal">
           Describe your civic or legal problem in simple plain language. Our AI determines your applicable rights, statutory resolution SLA, official grievance channel, and generates legal draft letters.
         </p>
       </div>
@@ -119,16 +119,16 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
       {/* PIN Code Location Context Alert Bar */}
       <div className="hidden" aria-hidden="true">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 rounded-xl bg-blue-600/20 text-blue-400">
+          <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
             <MapPin className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Jurisdiction Context</p>
-            <p className="text-sm font-bold text-white">
+            <p className="text-xs font-semibold text-txtsecondary uppercase tracking-wider">Active Jurisdiction Context</p>
+            <p className="text-sm font-bold text-txtprimary font-display">
               {pincodeInfo ? (
                 <>
                   {pincodeInfo.district}, {pincodeInfo.state} —{' '}
-                  <span className={pincodeInfo.type === 'Rural' ? 'text-amber-400' : 'text-emerald-400'}>
+                  <span className={pincodeInfo.type === 'Rural' ? 'text-accent' : 'text-success'}>
                     {pincodeInfo.type} ({pincodeInfo.body})
                   </span>
                 </>
@@ -141,40 +141,46 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
 
         <button
           onClick={onOpenPincodeModal}
-          className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-blue-300 border border-slate-700 transition-all"
+          className="px-4 py-2 rounded-xl bg-surface hover:bg-page text-xs font-semibold text-accent border border-themeborder transition-all focus:outline-none"
         >
           Change Location PIN
         </button>
       </div>
 
-      {/* Input Form Box */}
-      <div className="glass-card rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-800 relative">
+      {/* Input Form Box (Petition Docket Entry) */}
+      <div className="glass-card rounded-2xl p-4 sm:p-6 shadow-2xl border border-themeborder relative">
+        <div className="absolute top-0 left-6 -translate-y-1/2 bg-surface border border-themeborder px-3 py-1 rounded text-[10px] font-extrabold tracking-widest text-accent uppercase">
+          Petition Submission Form
+        </div>
+        
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSubmit(query);
           }}
-          className="space-y-3"
+          className="space-y-4 pt-2"
         >
           <div className="relative">
+            <label htmlFor="civic-query" className="sr-only">Describe your civic or legal situation</label>
             <textarea
+              id="civic-query"
               rows={3}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Describe your civic problem (e.g. 'Potholes causing accidents on main road', 'Landlord holding deposit', 'Garbage dump near home')..."
-              className="w-full p-4 rounded-2xl glass-input text-white text-sm focus:ring-2 focus:ring-blue-500 placeholder:text-slate-500 resize-none font-medium"
+              className="w-full p-4 rounded-xl glass-input text-txtprimary text-sm placeholder:text-txtsecondary resize-none font-medium focus:outline-none"
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-slate-500 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-400" /> Free & Anonymous Citizen Navigator
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <p className="text-xs text-txtsecondary flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-accent" /> Free & Anonymous Citizen Rights Protection
             </p>
 
             <button
               type="submit"
               disabled={loading || !query.trim()}
-              className="px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-blue-600/30 flex items-center space-x-2 transition-all disabled:opacity-40"
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-accent-solid hover:opacity-90 text-accent-text font-bold text-sm shadow-md flex items-center justify-center space-x-2 transition-all disabled:opacity-40 focus:outline-none"
             >
               {loading ? (
                 <>
@@ -190,13 +196,13 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
             </button>
           </div>
         </form>
-        {error && <p className="mt-3 px-2 text-xs font-medium text-rose-300">{error}</p>}
+        {error && <p className="mt-3 px-2 text-xs font-medium text-danger">{error}</p>}
       </div>
 
       {/* Sample Query Starter Chips */}
       {!response && (
-        <div className="space-y-3">
-          <p className="text-xs font-extrabold uppercase tracking-wider text-slate-400 text-center">
+        <div className="space-y-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-txtsecondary text-center">
             Or select a sample situation to test:
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -207,100 +213,109 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
                   setQuery(item.prompt);
                   handleSubmit(item.prompt);
                 }}
-                className="glass-card glass-card-hover p-4 rounded-2xl text-left border border-slate-800/80 space-y-1.5 group"
+                className="glass-card glass-card-hover p-4 rounded-xl text-left border border-themeborder space-y-1.5 group border-l-2 border-l-accent focus:outline-none"
               >
                 <div className="flex items-center space-x-2">
                   <span className="text-lg">{item.icon}</span>
-                  <strong className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">
+                  <strong className="text-sm font-bold text-txtprimary group-hover:text-accent transition-colors font-display">
                     {item.title}
                   </strong>
                 </div>
-                <p className="text-xs text-slate-400 line-clamp-2">{item.prompt}</p>
+                <p className="text-xs text-txtsecondary line-clamp-2">{item.prompt}</p>
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* AI Analysis & Action Plan Result Output */}
+      {/* AI Analysis & Action Plan Result Output (Parchment Docket Sheet) */}
       {response && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           
           {/* Header Result Summary Card */}
-          <div className="glass-card rounded-3xl p-6 border-l-4 border-l-blue-500 border-slate-800 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
-              <div>
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase tracking-wider">
-                  {response.category_id.replace('_', ' ')}
-                </span>
-                <h2 className="text-2xl font-extrabold text-white mt-1 font-['Outfit']">
-                  {response.category_title}
-                </h2>
+          <div className="docket-sheet rounded-2xl p-6 md:p-8 space-y-6 court-margin shadow-2xl relative">
+            
+            {/* Signature Element: Rotated distressed ink stamp seal */}
+            <div className="absolute top-4 right-4 sm:top-6 sm:right-6 rotate-[-5deg] z-10">
+              <div className="ink-stamp ink-stamp-danger select-none pointer-events-none">
+                <Clock className="w-3.5 h-3.5 inline mr-1" />
+                <span>SLA LIMIT: {response.sla_days} DAYS</span>
               </div>
+            </div>
 
-              <div className="flex items-center space-x-3">
-                <div className="px-4 py-2 rounded-2xl bg-slate-900 border border-slate-800 text-right">
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Statutory SLA</span>
-                  <span className="text-emerald-400 font-extrabold text-sm flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 inline" /> {response.sla_days} Days Max
+            <div className="court-content space-y-6">
+              
+              {/* Top Meta info */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-themeborder pb-4 pr-0 sm:pr-32">
+                <div>
+                  <span className="px-2 py-0.5 rounded border border-accent/20 bg-accent/10 text-accent text-[10px] font-bold uppercase tracking-wider">
+                    {response.category_id.replace('_', ' ')}
                   </span>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-txtprimary mt-2 font-display">
+                    {response.category_title}
+                  </h2>
                 </div>
 
-                <button
-                  onClick={handleSaveToTracker}
-                  disabled={!!savedCaseId}
-                  className={`px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center space-x-2 transition-all ${
-                    savedCaseId
-                      ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30'
-                      : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/20'
-                  }`}
-                >
-                  <BookmarkPlus className="w-4 h-4" />
-                  <span>{savedCaseId ? `Saved (${savedCaseId})` : 'Save to Tracker'}</span>
-                </button>
+                <div className="flex items-center space-x-3 mt-2 sm:mt-0">
+                  <button
+                    onClick={handleSaveToTracker}
+                    disabled={!!savedCaseId}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all focus:outline-none ${
+                      savedCaseId
+                        ? 'bg-success/20 text-success border border-success/30'
+                        : 'bg-primary hover:bg-primary/95 text-page shadow-md'
+                    }`}
+                  >
+                    <BookmarkPlus className="w-4 h-4" />
+                    <span>{savedCaseId ? `Saved (${savedCaseId})` : 'Save to Case Tracker'}</span>
+                  </button>
+                </div>
               </div>
+
+              <div className="space-y-4">
+                <p className="text-sm text-txtprimary leading-relaxed font-normal">{response.summary}</p>
+
+                {response.applicable_rights?.length > 0 && (
+                  <div className="rounded-xl bg-primary/5 border border-primary/15 p-4">
+                    <p className="text-xs font-bold uppercase tracking-wider text-primary mb-2 font-display">Rights identified for your situation</p>
+                    <ul className="space-y-2">
+                      {response.applicable_rights.map((right, index) => (
+                        <li key={index} className="text-sm text-txtprimary flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 shrink-0" />
+                          <span>{right}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Applicable Law & Compensation Clause */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs pt-2">
+                  <div className="p-3.5 rounded-xl bg-page border border-themeborder">
+                    <span className="text-txtsecondary font-semibold block mb-0.5 uppercase tracking-wider text-[10px]">Applicable Statutory Act:</span>
+                    <strong className="text-primary font-display text-sm font-medium">{response.act_name}</strong>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-page border border-themeborder">
+                    <span className="text-txtsecondary font-semibold block mb-0.5 uppercase tracking-wider text-[10px]">Statutory Authority ({response.location.type}):</span>
+                    <strong className="text-accent font-display text-sm font-medium">{response.location.authority}</strong>
+                  </div>
+                </div>
+
+                {response.compensation_clause && (
+                  <div className="p-3.5 rounded-xl bg-danger/10 border border-danger/20 text-danger text-xs">
+                    <strong>💡 Statutory Compensation Clause:</strong> {response.compensation_clause}
+                  </div>
+                )}
+              </div>
+              
             </div>
-
-            <p className="text-sm text-slate-300 leading-relaxed font-medium">{response.summary}</p>
-
-            {response.applicable_rights?.length > 0 && (
-              <div className="rounded-2xl bg-blue-600/10 border border-blue-500/20 p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-blue-300 mb-2">Rights identified for your situation</p>
-                <ul className="space-y-1.5">
-                  {response.applicable_rights.map((right, index) => (
-                    <li key={index} className="text-sm text-slate-200 flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
-                      {right}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Applicable Law & Compensation Clause */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span className="text-slate-400 font-semibold block mb-0.5">Applicable Statutory Act:</span>
-                <strong className="text-blue-300">{response.act_name}</strong>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span className="text-slate-400 font-semibold block mb-0.5">Statutory Authority ({response.location.type}):</span>
-                <strong className="text-amber-300">{response.location.authority}</strong>
-              </div>
-            </div>
-
-            {response.compensation_clause && (
-              <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-800/40 text-purple-200 text-xs">
-                <strong>💡 Citizen Right & Penalty Provision:</strong> {response.compensation_clause}
-              </div>
-            )}
           </div>
 
-          {/* Step-by-Step Guided Action Plan */}
+          {/* Step-by-Step Guided Action Plan (Filing Index Tabs) */}
           <div className="space-y-4">
-            <h3 className="text-xl font-bold text-white font-['Outfit'] flex items-center gap-2">
-              <ArrowRight className="w-5 h-5 text-blue-400" />
+            <h3 className="text-xl font-bold text-txtprimary font-display flex items-center gap-2">
+              <ArrowRight className="w-5 h-5 text-accent" />
               <span>Step-by-Step Action Roadmap</span>
             </h3>
 
@@ -308,32 +323,33 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
               {response.steps.map((st) => (
                 <div
                   key={st.step}
-                  className="glass-card rounded-2xl p-5 border border-slate-800 flex flex-col justify-between relative overflow-hidden group hover:border-blue-500/40 transition-all"
+                  className="glass-card rounded-xl p-5 border border-themeborder flex flex-col justify-between relative overflow-hidden group hover:border-accent transition-all pt-8 focus:outline-none"
                 >
-                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-extrabold flex items-center justify-center text-sm shadow-md mb-3">
-                    {st.step}
+                  {/* Folder Tab Effect */}
+                  <div className="absolute top-0 left-0 bg-primary/10 text-primary font-bold text-[10px] uppercase tracking-wider px-3 py-1 rounded-br-lg border-r border-b border-themeborder">
+                    INDEX SEC. {st.step}
                   </div>
-                  <div>
-                    <h4 className="text-base font-bold text-white mb-1.5">{st.title}</h4>
-                    <p className="text-xs text-slate-400 leading-relaxed">{st.detail}</p>
+                  <div className="mt-2">
+                    <h4 className="text-base font-bold text-txtprimary mb-1.5 font-display">{st.title}</h4>
+                    <p className="text-xs text-txtsecondary leading-relaxed">{st.detail}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* DOs and DONTs Section */}
+          {/* DOs and DONTs Section (Translucent Panels) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* DOs */}
-            <div className="glass-card rounded-3xl p-6 border-t-4 border-t-emerald-500 border-slate-800 space-y-3">
-              <h4 className="text-base font-extrabold text-emerald-400 flex items-center gap-2 font-['Outfit']">
-                <CheckCircle2 className="w-5 h-5" />
+            <div className="bg-success-low rounded-xl p-6 border-l-4 border-l-success border border-success/20 space-y-4">
+              <h4 className="text-base font-bold text-success flex items-center gap-2 font-display uppercase tracking-wide">
+                <CheckCircle2 className="w-5 h-5 text-success" />
                 <span>What TO DO (Best Practices)</span>
               </h4>
-              <ul className="space-y-2.5">
+              <ul className="space-y-3">
                 {response.dos.map((d, i) => (
-                  <li key={i} className="text-xs text-slate-300 flex items-start space-x-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
+                  <li key={i} className="text-xs text-txtprimary flex items-start space-x-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-success mt-1.5 shrink-0" />
                     <span>{d}</span>
                   </li>
                 ))}
@@ -341,15 +357,15 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
             </div>
 
             {/* DONTs */}
-            <div className="glass-card rounded-3xl p-6 border-t-4 border-t-rose-500 border-slate-800 space-y-3">
-              <h4 className="text-base font-extrabold text-rose-400 flex items-center gap-2 font-['Outfit']">
-                <AlertTriangle className="w-5 h-5" />
+            <div className="bg-danger-low rounded-xl p-6 border-l-4 border-l-danger border border-danger/20 space-y-4">
+              <h4 className="text-base font-bold text-danger flex items-center gap-2 font-display uppercase tracking-wide">
+                <AlertTriangle className="w-5 h-5 text-danger" />
                 <span>What NOT TO DO (Avoid Pitfalls)</span>
               </h4>
-              <ul className="space-y-2.5">
+              <ul className="space-y-3">
                 {response.donts.map((d, i) => (
-                  <li key={i} className="text-xs text-slate-300 flex items-start space-x-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 shrink-0" />
+                  <li key={i} className="text-xs text-txtprimary flex items-start space-x-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-danger mt-1.5 shrink-0" />
                     <span>{d}</span>
                   </li>
                 ))}
@@ -358,8 +374,8 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
           </div>
 
           {/* Instant Legal & Grievance Generator Actions */}
-          <div className="glass-card rounded-3xl p-6 border border-slate-800 space-y-4">
-            <h4 className="text-lg font-bold text-white font-['Outfit']">Generate Instant Ready-to-File Documents</h4>
+          <div className="glass-card rounded-xl p-6 border border-themeborder space-y-4">
+            <h4 className="text-lg font-bold text-txtprimary font-display">Generate Instant Ready-to-File Documents</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <button
                 onClick={() =>
@@ -369,11 +385,11 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
                     subject: response.query,
                   })
                 }
-                className="p-4 rounded-2xl bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-left transition-all group"
+                className="p-4 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/20 text-left transition-all group focus:outline-none"
               >
-                <FileText className="w-6 h-6 text-blue-400 mb-2 group-hover:scale-110 transition-transform" />
-                <h5 className="text-sm font-bold text-white">Generate RTI Section 6(1)</h5>
-                <p className="text-xs text-slate-400 mt-0.5">Formally request tender, file notes & delay reasons</p>
+                <FileText className="w-6 h-6 text-primary mb-2 group-hover:scale-105 transition-transform" />
+                <h5 className="text-sm font-bold text-txtprimary font-display">Generate RTI Section 6(1)</h5>
+                <p className="text-xs text-txtsecondary mt-0.5">Formally request tender, file notes & delay reasons</p>
               </button>
 
               <button
@@ -387,22 +403,22 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
                     }
                   )
                 }
-                className="p-4 rounded-2xl bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/30 text-left transition-all group"
+                className="p-4 rounded-xl bg-danger/5 hover:bg-danger/10 border border-danger/20 text-left transition-all group focus:outline-none"
               >
-                <Mail className="w-6 h-6 text-purple-400 mb-2 group-hover:scale-110 transition-transform" />
-                <h5 className="text-sm font-bold text-white">Generate Legal Notice</h5>
-                <p className="text-xs text-slate-400 mt-0.5">15-day statutory notice for refund/repairs</p>
+                <Mail className="w-6 h-6 text-danger mb-2 group-hover:scale-105 transition-transform" />
+                <h5 className="text-sm font-bold text-txtprimary font-display">Generate Legal Notice</h5>
+                <p className="text-xs text-txtsecondary mt-0.5">15-day statutory notice for refund/repairs</p>
               </button>
 
               <a
                 href={response.location.portal.includes('http') ? response.location.portal : 'https://pgportal.gov.in/'}
                 target="_blank"
                 rel="noreferrer"
-                className="p-4 rounded-2xl bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-500/30 text-left transition-all group"
+                className="p-4 rounded-xl bg-success/5 hover:bg-success/10 border border-success/20 text-left transition-all group focus:outline-none"
               >
-                <ShieldCheck className="w-6 h-6 text-emerald-400 mb-2 group-hover:scale-110 transition-transform" />
-                <h5 className="text-sm font-bold text-white">File on Official Portal</h5>
-                <p className="text-xs text-slate-400 mt-0.5">{response.location.portal}</p>
+                <ShieldCheck className="w-6 h-6 text-success mb-2 group-hover:scale-105 transition-transform" />
+                <h5 className="text-sm font-bold text-txtprimary font-display">File on Official Portal</h5>
+                <p className="text-xs text-txtsecondary mt-0.5">{response.location.portal}</p>
               </a>
             </div>
           </div>
