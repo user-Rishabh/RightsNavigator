@@ -239,12 +239,14 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
           <div className="docket-sheet rounded-2xl p-6 md:p-8 space-y-6 court-margin shadow-2xl relative">
             
             {/* Signature Element: Rotated distressed ink stamp seal */}
-            <div className="absolute top-4 right-4 sm:top-6 sm:right-6 rotate-[-5deg] z-10">
-              <div className="ink-stamp ink-stamp-danger select-none pointer-events-none">
-                <Clock className="w-3.5 h-3.5 inline mr-1" />
-                <span>SLA LIMIT: {response.sla_days} DAYS</span>
+            {response.grounded !== false && (
+              <div className="absolute top-4 right-4 sm:top-6 sm:right-6 rotate-[-5deg] z-10">
+                <div className="ink-stamp ink-stamp-danger select-none pointer-events-none">
+                  <Clock className="w-3.5 h-3.5 inline mr-1" />
+                  <span>SLA LIMIT: {response.sla_days} DAYS</span>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="court-content space-y-6">
               
@@ -276,6 +278,12 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
               </div>
 
               <div className="space-y-4">
+                {response.grounded === false && (
+                  <div className="p-4 rounded-xl bg-slate-500/10 border border-slate-500/20 text-xs text-txtsecondary flex items-start gap-2.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <span>General guidance for {response.location.state || "your state"} - not yet verified against local statute. Confirm with your municipal office.</span>
+                  </div>
+                )}
                 <p className="text-sm text-txtprimary leading-relaxed font-normal">{response.summary}</p>
 
                 {response.applicable_rights?.length > 0 && (
@@ -293,21 +301,32 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
                 )}
 
                 {/* Applicable Law & Compensation Clause */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs pt-2">
-                  <div className="p-3.5 rounded-xl bg-page border border-themeborder">
-                    <span className="text-txtsecondary font-semibold block mb-0.5 uppercase tracking-wider text-[10px]">Applicable Statutory Act:</span>
-                    <strong className="text-primary font-display text-sm font-medium">{response.act_name}</strong>
-                  </div>
+                {response.grounded !== false ? (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs pt-2">
+                      <div className="p-3.5 rounded-xl bg-page border border-themeborder">
+                        <span className="text-txtsecondary font-semibold block mb-0.5 uppercase tracking-wider text-[10px]">Applicable Statutory Act:</span>
+                        <strong className="text-primary font-display text-sm font-medium">{response.act_name}</strong>
+                      </div>
 
-                  <div className="p-3.5 rounded-xl bg-page border border-themeborder">
-                    <span className="text-txtsecondary font-semibold block mb-0.5 uppercase tracking-wider text-[10px]">Statutory Authority ({response.location.type}):</span>
-                    <strong className="text-accent font-display text-sm font-medium">{response.location.authority}</strong>
-                  </div>
-                </div>
+                      <div className="p-3.5 rounded-xl bg-page border border-themeborder">
+                        <span className="text-txtsecondary font-semibold block mb-0.5 uppercase tracking-wider text-[10px]">Statutory Authority ({response.location.type}):</span>
+                        <strong className="text-accent font-display text-sm font-medium">{response.location.authority}</strong>
+                      </div>
+                    </div>
 
-                {response.compensation_clause && (
-                  <div className="p-3.5 rounded-xl bg-danger/10 border border-danger/20 text-danger text-xs">
-                    <strong>💡 Statutory Compensation Clause:</strong> {response.compensation_clause}
+                    {response.compensation_clause && (
+                      <div className="p-3.5 rounded-xl bg-danger/10 border border-danger/20 text-danger text-xs">
+                        <strong>💡 Statutory Compensation Clause:</strong> {response.compensation_clause}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 text-xs pt-2">
+                    <div className="p-3.5 rounded-xl bg-page border border-themeborder">
+                      <span className="text-txtsecondary font-semibold block mb-0.5 uppercase tracking-wider text-[10px]">General Grievance Authority ({response.location.type}):</span>
+                      <strong className="text-accent font-display text-sm font-medium">{response.location.authority}</strong>
+                    </div>
                   </div>
                 )}
               </div>
@@ -316,65 +335,69 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
           </div>
 
           {/* Step-by-Step Guided Action Plan (Filing Index Tabs) */}
-          <div className="space-y-4">
-            <h3 className="text-xl font-bold text-txtprimary font-display flex items-center gap-2">
-              <ArrowRight className="w-5 h-5 text-accent" />
-              <span>Step-by-Step Action Roadmap</span>
-            </h3>
+          {response.steps && response.steps.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-xl font-bold text-txtprimary font-display flex items-center gap-2">
+                <ArrowRight className="w-5 h-5 text-accent" />
+                <span>Step-by-Step Action Roadmap</span>
+              </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {response.steps.map((st) => (
-                <div
-                  key={st.step}
-                  className="glass-card rounded-xl p-5 border border-themeborder flex flex-col justify-between relative overflow-hidden group hover:border-accent transition-all pt-8 focus:outline-none"
-                >
-                  {/* Folder Tab Effect */}
-                  <div className="absolute top-0 left-0 bg-primary/10 text-primary font-bold text-[10px] uppercase tracking-wider px-3 py-1 rounded-br-lg border-r border-b border-themeborder">
-                    INDEX SEC. {st.step}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {response.steps.map((st) => (
+                  <div
+                    key={st.step}
+                    className="glass-card rounded-xl p-5 border border-themeborder flex flex-col justify-between relative overflow-hidden group hover:border-accent transition-all pt-8 focus:outline-none"
+                  >
+                    {/* Folder Tab Effect */}
+                    <div className="absolute top-0 left-0 bg-primary/10 text-primary font-bold text-[10px] uppercase tracking-wider px-3 py-1 rounded-br-lg border-r border-b border-themeborder">
+                      INDEX SEC. {st.step}
+                    </div>
+                    <div className="mt-2">
+                      <h4 className="text-base font-bold text-txtprimary mb-1.5 font-display">{st.title}</h4>
+                      <p className="text-xs text-txtsecondary leading-relaxed">{st.detail}</p>
+                    </div>
                   </div>
-                  <div className="mt-2">
-                    <h4 className="text-base font-bold text-txtprimary mb-1.5 font-display">{st.title}</h4>
-                    <p className="text-xs text-txtsecondary leading-relaxed">{st.detail}</p>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* DOs and DONTs Section (Translucent Panels) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* DOs */}
-            <div className="bg-success-low rounded-xl p-6 border-l-4 border-l-success border border-success/20 space-y-4">
-              <h4 className="text-base font-bold text-success flex items-center gap-2 font-display uppercase tracking-wide">
-                <CheckCircle2 className="w-5 h-5 text-success" />
-                <span>What TO DO (Best Practices)</span>
-              </h4>
-              <ul className="space-y-3">
-                {response.dos.map((d, i) => (
-                  <li key={i} className="text-xs text-txtprimary flex items-start space-x-2.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-success mt-1.5 shrink-0" />
-                    <span>{d}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {((response.dos && response.dos.length > 0) || (response.donts && response.donts.length > 0)) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* DOs */}
+              <div className="bg-success-low rounded-xl p-6 border-l-4 border-l-success border border-success/20 space-y-4">
+                <h4 className="text-base font-bold text-success flex items-center gap-2 font-display uppercase tracking-wide">
+                  <CheckCircle2 className="w-5 h-5 text-success" />
+                  <span>What TO DO (Best Practices)</span>
+                </h4>
+                <ul className="space-y-3">
+                  {response.dos.map((d, i) => (
+                    <li key={i} className="text-xs text-txtprimary flex items-start space-x-2.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-success mt-1.5 shrink-0" />
+                      <span>{d}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-            {/* DONTs */}
-            <div className="bg-danger-low rounded-xl p-6 border-l-4 border-l-danger border border-danger/20 space-y-4">
-              <h4 className="text-base font-bold text-danger flex items-center gap-2 font-display uppercase tracking-wide">
-                <AlertTriangle className="w-5 h-5 text-danger" />
-                <span>What NOT TO DO (Avoid Pitfalls)</span>
-              </h4>
-              <ul className="space-y-3">
-                {response.donts.map((d, i) => (
-                  <li key={i} className="text-xs text-txtprimary flex items-start space-x-2.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-danger mt-1.5 shrink-0" />
-                    <span>{d}</span>
-                  </li>
-                ))}
-              </ul>
+              {/* DONTs */}
+              <div className="bg-danger-low rounded-xl p-6 border-l-4 border-l-danger border border-danger/20 space-y-4">
+                <h4 className="text-base font-bold text-danger flex items-center gap-2 font-display uppercase tracking-wide">
+                  <AlertTriangle className="w-5 h-5 text-danger" />
+                  <span>What NOT TO DO (Avoid Pitfalls)</span>
+                </h4>
+                <ul className="space-y-3">
+                  {response.donts.map((d, i) => (
+                    <li key={i} className="text-xs text-txtprimary flex items-start space-x-2.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-danger mt-1.5 shrink-0" />
+                      <span>{d}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Instant Legal & Grievance Generator Actions */}
           <div className="glass-card rounded-xl p-6 border border-themeborder space-y-4">

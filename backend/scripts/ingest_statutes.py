@@ -35,8 +35,8 @@ def main():
     chunks = data.get("chunks", [])
     print(f"Loaded {len(chunks)} chunks from corpus.")
 
-    # Filter to only ingest rti, consumer_protection, tenant_rights
-    allowed_categories = ["rti", "consumer_protection", "tenant_rights"]
+    # Filter to only ingest active launch categories
+    allowed_categories = ["rti", "consumer_protection", "tenant_rights", "pothole", "water_supply", "garbage"]
     chunks = [c for c in chunks if c["category"] in allowed_categories]
     print(f"Filtered to {len(chunks)} chunks for categories: {allowed_categories}")
 

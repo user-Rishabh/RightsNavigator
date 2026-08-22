@@ -5,7 +5,7 @@ import logging
 from fastapi import HTTPException
 from app.database import get_db_connection
 from app.services.pincode_service import lookup_pincode
-from app.services.rag import classify_and_retrieve, generate_grounded_response
+from app.services.rag import classify_and_retrieve, generate_grounded_response, generate_fallback_response
 
 logger = logging.getLogger("navigator_engine")
 
@@ -107,17 +107,70 @@ async def analyze_citizen_problem(query: str, pincode: str = "560001") -> dict:
     # 1. Fetch location details
     loc_info = await lookup_pincode(pincode)
     is_rural = loc_info["type"] == "Rural"
+    user_state = loc_info.get("state", "all")
 
     # Use RAG-based classification and retrieval
-    result = classify_and_retrieve(query)
+    result = classify_and_retrieve(query, user_state)
     if result["status"] == "unclear":
-        raise HTTPException(status_code=400, detail=result["message"])
+        raise HTTPException(status_code=400, detail=result.get("message", "Could you add more detail?"))
 
     matched_cat = result["category"]
-    chunks = result["chunks"]
 
     if matched_cat not in ACTIVE_CATEGORIES:
         raise HTTPException(status_code=400, detail="This category is in progress — check back soon")
+
+    # Handle fallback branch (category exists but not grounded for this state)
+    if result["status"] == "fallback":
+        try:
+            answer = generate_fallback_response(query, matched_cat, user_state)
+        except Exception as e:
+            logger.error("Groq fallback generation failed: %s", e)
+            raise HTTPException(
+                status_code=503,
+                detail="Unable to generate guidance right now. Please try again."
+            )
+
+        # Retrieve database category details for metadata compatibility
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM categories WHERE id = ?", (matched_cat,))
+        cat_row = cursor.fetchone()
+        conn.close()
+
+        title = cat_row["name"] if cat_row else matched_cat.replace("_", " ").title()
+
+        return {
+            "query": query,
+            "category_id": matched_cat,
+            "category_title": title,
+            "summary": answer,
+            "applicable_rights": [],
+            "location": {
+                "pincode": loc_info["pincode"],
+                "state": loc_info["state"],
+                "district": loc_info["district"],
+                "taluka": loc_info["taluka"],
+                "type": loc_info["type"],
+                "authority": loc_info["body"],
+                "portal": loc_info["portal"],
+                "helpline": loc_info["helpline"]
+            },
+            "act_name": "General Guidance",
+            "sla_days": 0,
+            "compensation_clause": "",
+            "steps": [],
+            "dos": [],
+            "donts": [],
+            "action_buttons": [
+                {"id": "draft_rti" if matched_cat == "rti_access" else "draft_notice", 
+                 "label": "Generate RTI Application (Sec 6)" if matched_cat == "rti_access" else "Generate Legal Notice (General Template)", 
+                 "icon": "FileText" if matched_cat == "rti_access" else "Mail"},
+                {"id": "open_portal", "label": f"Visit Grievance Portal", "url": "https://pgportal.gov.in/", "icon": "ExternalLink"}
+            ],
+            "grounded": False
+        }
+
+    chunks = result["chunks"]
 
     # 2. Retrieve database category knowledge
     conn = get_db_connection()
@@ -377,5 +430,6 @@ async def analyze_citizen_problem(query: str, pincode: str = "560001") -> dict:
              "label": "Generate RTI Application (Sec 6)" if matched_cat == "rti_access" else "Generate Legal/Grievance Notice", 
              "icon": "FileText" if matched_cat == "rti_access" else "Mail"},
             {"id": "open_portal", "label": f"Visit Grievance Portal", "url": "https://pgportal.gov.in/", "icon": "ExternalLink"}
-        ]
+        ],
+        "grounded": True
     }

@@ -93,9 +93,9 @@ def hybrid_search(query: str, k: int = 8) -> list:
     fused_docs = [id_to_doc[doc_id] for doc_id in sorted_ids[:k]]
     return fused_docs
 
-def classify_and_retrieve(query: str, confidence_threshold: float = 0.4) -> dict:
-    """Classify the user query category based on retrieved chunks confidence score.
-    Returns classified category details or an unclear status.
+def classify_and_retrieve(query: str, user_state: str, confidence_threshold: float = 0.4) -> dict:
+    """Classify the user query category based on retrieved chunks confidence score and filter by user state.
+    Returns grounded category details, fallback category details, or an unclear status.
     """
     fused_docs = hybrid_search(query, k=8)
     if not fused_docs:
@@ -117,14 +117,54 @@ def classify_and_retrieve(query: str, confidence_threshold: float = 0.4) -> dict
             "message": "Could you add more detail about your issue?"
         }
 
-    # Retrieve only chunks matching the resolved category
-    matching_chunks = [doc for doc in fused_docs if doc["category"] == top_category]
-    return {
-        "status": "classified",
-        "category": db_category,
-        "chunks": matching_chunks,
-        "confidence": confidence
-    }
+    # Group all votes matching this category
+    category_votes = [doc for doc in fused_docs if doc["category"] == top_category]
+
+    # Filter chunks relevant to this user's state (case-insensitive check)
+    state_matched = []
+    for c in category_votes:
+        states = c.get("applicable_states", ["all"])
+        # Normalize to lowercase for robust matching
+        states_lower = [s.lower().strip() for s in states]
+        if user_state.lower().strip() in states_lower or "all" in states_lower:
+            state_matched.append(c)
+
+    if state_matched:
+        return {
+            "status": "grounded",
+            "category": db_category,
+            "chunks": state_matched,
+            "confidence": confidence
+        }
+    else:
+        # Category exists, has chunks, but none match this user's state -> fallback
+        return {
+            "status": "fallback",
+            "category": db_category,
+            "confidence": confidence
+        }
+
+FALLBACK_PROMPT = """
+You are giving GENERAL civic guidance, not verified against {user_state}'s specific municipal law. Do not cite a specific act or section number - we have not verified one for this state. Do not state a specific numeric SLA/deadline - say response times vary by local authority.
+
+Citizen's situation: "{query}"
+Category: {category}
+
+Give a general, honest overview: likely responsible authority type (e.g. "your city's municipal corporation" or "state water board"), general steps to file a grievance (e.g. document the issue, check for the municipal corporation's online grievance portal, follow up with a written complaint), and clearly state this is general guidance - recommend the user check their municipal corporation's website for the exact process.
+"""
+
+def generate_fallback_response(query: str, category: str, user_state: str) -> str:
+    """Generate ungrounded fallback guidance for categories that don't match the user's state."""
+    client = get_groq_client()
+    prompt = FALLBACK_PROMPT.format(query=query, category=category, user_state=user_state)
+    completion = client.chat.completions.create(
+        model="openai/gpt-oss-120b",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+    )
+    answer = completion.choices[0].message.content
+    # Clean asterisks from fallback response
+    return answer.replace("**", "").replace("*", "")
 
 def generate_grounded_response(query: str, chunks: list, practical_info: dict) -> str:
     """Assemble RAG prompt and query Groq openai/gpt-oss-120b for grounded generation."""
