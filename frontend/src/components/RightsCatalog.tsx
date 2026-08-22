@@ -26,9 +26,19 @@ const ICON_MAP: Record<string, any> = {
   Building2: Building2,
 };
 
+const ACTIVE_CATEGORIES = [
+  'potholes_roads',
+  'garbage_sanitation',
+  'water_supply',
+  'tenant_rights',
+  'rti_access',
+  'consumer_rights'
+];
+
 export const RightsCatalog: React.FC<RightsCatalogProps> = ({ onSelectCategory }) => {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/rights/categories')
@@ -40,6 +50,13 @@ export const RightsCatalog: React.FC<RightsCatalogProps> = ({ onSelectCategory }
       .finally(() => setLoading(false));
   }, []);
 
+  const handleComingSoonClick = (catId: string) => {
+    setActiveTooltip(catId);
+    setTimeout(() => {
+      setActiveTooltip((current) => current === catId ? null : current);
+    }, 3000);
+  };
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Catalog Title Header */}
@@ -49,6 +66,12 @@ export const RightsCatalog: React.FC<RightsCatalogProps> = ({ onSelectCategory }
         </h2>
         <p className="text-sm text-slate-400 max-w-2xl mx-auto">
           Explore statutory guarantees, resolution SLAs under State Right to Public Services Acts, and urban vs rural grievance escalation paths.
+        </p>
+      </div>
+
+      <div className="text-center">
+        <p className="text-xs text-txtsecondary">
+          We're launching with 6 fully verified categories — more are being added.
         </p>
       </div>
 
@@ -63,15 +86,26 @@ export const RightsCatalog: React.FC<RightsCatalogProps> = ({ onSelectCategory }
             const IconComp = ICON_MAP[cat.icon] || ShieldCheck;
             const urbanRule = cat.rules?.urban || {};
             const ruralRule = cat.rules?.rural || {};
+            const isComingSoon = !ACTIVE_CATEGORIES.includes(cat.id);
 
             return (
               <div
                 key={cat.id}
-                className="glass-card glass-card-hover rounded-3xl p-6 border border-slate-800 flex flex-col justify-between space-y-4 group"
+                className={`glass-card rounded-3xl p-6 border border-slate-800 flex flex-col justify-between space-y-4 group relative ${
+                  isComingSoon ? 'opacity-70' : 'glass-card-hover'
+                }`}
               >
+                {isComingSoon && (
+                  <span className="absolute top-4 right-4 px-2 py-0.5 rounded-full text-[10px] font-bold border border-[var(--text-muted)]/20 bg-[var(--text-muted)]/10 text-[var(--text-muted)]">
+                    Coming soon
+                  </span>
+                )}
+
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="p-3 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-blue-400 group-hover:scale-110 transition-transform">
+                    <div className={`p-3 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-blue-400 transition-transform ${
+                      isComingSoon ? 'grayscale saturate-50' : 'group-hover:scale-110'
+                    }`}>
                       <IconComp className="w-6 h-6" />
                     </div>
                     <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-extrabold text-xs flex items-center gap-1">
@@ -80,7 +114,9 @@ export const RightsCatalog: React.FC<RightsCatalogProps> = ({ onSelectCategory }
                   </div>
 
                   <div>
-                    <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors font-['Outfit']">
+                    <h3 className={`text-xl font-bold text-white transition-colors font-['Outfit'] ${
+                      isComingSoon ? '' : 'group-hover:text-blue-400'
+                    }`}>
                       {cat.name}
                     </h3>
                     <p className="text-xs text-slate-400 mt-1 line-clamp-2">{cat.description}</p>
@@ -110,18 +146,34 @@ export const RightsCatalog: React.FC<RightsCatalogProps> = ({ onSelectCategory }
                   </div>
                 </div>
 
-                <button
-                  onClick={() =>
-                    onSelectCategory(
-                      cat.id,
-                      `I need guidance regarding ${cat.name}. What are my rights and how do I file a complaint?`
-                    )
-                  }
-                  className="w-full py-3 rounded-2xl bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white font-bold text-xs transition-all flex items-center justify-center space-x-2 shadow-sm"
-                >
-                  <span>Navigate {cat.name}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                <div className="space-y-3">
+                  {activeTooltip === cat.id && (
+                    <div className="text-[11px] text-amber-500 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl text-center transition-all duration-300">
+                      This category is in progress — check back soon
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      if (isComingSoon) {
+                        handleComingSoonClick(cat.id);
+                      } else {
+                        onSelectCategory(
+                          cat.id,
+                          `I need guidance regarding ${cat.name}. What are my rights and how do I file a complaint?`
+                        );
+                      }
+                    }}
+                    className={`w-full py-3 rounded-2xl font-bold text-xs transition-all flex items-center justify-center space-x-2 shadow-sm ${
+                      isComingSoon
+                        ? 'bg-slate-800/50 text-slate-500 hover:bg-slate-800/50 cursor-pointer'
+                        : 'bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white'
+                    }`}
+                  >
+                    <span>{isComingSoon ? 'Coming Soon' : `Navigate ${cat.name}`}</span>
+                    {!isComingSoon && <ArrowRight className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             );
           })}

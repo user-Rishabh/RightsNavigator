@@ -2,10 +2,21 @@ import json
 import os
 import httpx
 import logging
+from fastapi import HTTPException
 from app.database import get_db_connection
 from app.services.pincode_service import lookup_pincode
+from app.services.rag import classify_and_retrieve, generate_grounded_response
 
 logger = logging.getLogger("navigator_engine")
+
+ACTIVE_CATEGORIES = {
+    "potholes_roads",
+    "garbage_sanitation",
+    "water_supply",
+    "consumer_rights",
+    "tenant_rights",
+    "rti_access"
+}
 
 # Keyword matcher for quick fallback category detection
 CATEGORY_KEYWORDS = {
@@ -97,23 +108,18 @@ async def analyze_citizen_problem(query: str, pincode: str = "560001") -> dict:
     loc_info = await lookup_pincode(pincode)
     is_rural = loc_info["type"] == "Rural"
 
-    # Use a model-generated answer whenever Gemini is configured. The rules below
-    # remain a safe offline fallback if the model is unavailable.
-    ai_response = await generate_ai_navigation(query, loc_info)
-    if ai_response:
-        return ai_response
+    # Use RAG-based classification and retrieval
+    result = classify_and_retrieve(query)
+    if result["status"] == "unclear":
+        raise HTTPException(status_code=400, detail=result["message"])
 
-    # 2. Determine category
-    matched_cat = "potholes_roads"  # default
-    max_score = 0
+    matched_cat = result["category"]
+    chunks = result["chunks"]
 
-    for cat_id, keywords in CATEGORY_KEYWORDS.items():
-        score = sum(1 for kw in keywords if kw in query_lower)
-        if score > max_score:
-            max_score = score
-            matched_cat = cat_id
+    if matched_cat not in ACTIVE_CATEGORIES:
+        raise HTTPException(status_code=400, detail="This category is in progress — check back soon")
 
-    # 3. Retrieve database category knowledge
+    # 2. Retrieve database category knowledge
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM categories WHERE id = ?", (matched_cat,))
@@ -314,11 +320,38 @@ async def analyze_citizen_problem(query: str, pincode: str = "560001") -> dict:
             "DON'T exceed 500 words per RTI application."
         ]
 
+    practical_info = {
+        "authority_name": target_authority,
+        "portal_url": portal_link,
+        "helpline": helpline,
+        "compensation_clause": compensation_clause,
+        "act_name": act_name,
+        "default_sla_days": sla_days,
+        "steps": steps,
+        "dos": dos,
+        "donts": donts
+    }
+
+    # Generate grounded response using Groq
+    try:
+        answer = generate_grounded_response(query, chunks, practical_info)
+        # Append formal citations at the end of the answer
+        citations_list = []
+        for c in chunks:
+            sec = f" Sec {c['section']}" if c.get('section') else ""
+            citations_list.append(f"{c['act_name']}{sec}")
+        unique_citations = sorted(list(set(citations_list)))
+        citation_text = "\n\n**Statutory Citations:**\n" + "\n".join([f"- {cit}" for cit in unique_citations])
+        grounded_summary = answer + citation_text
+    except Exception as e:
+        logger.error("Failed to generate grounded response: %s", e)
+        grounded_summary = summary
+
     return {
         "query": query,
         "category_id": matched_cat,
         "category_title": title,
-        "summary": summary,
+        "summary": grounded_summary,
         "applicable_rights": [f"Right to pursue a grievance with {target_authority}", "Right to retain evidence and request a written response"],
         "location": {
             "pincode": loc_info["pincode"],
@@ -337,8 +370,9 @@ async def analyze_citizen_problem(query: str, pincode: str = "560001") -> dict:
         "dos": dos,
         "donts": donts,
         "action_buttons": [
-            {"id": "draft_rti", "label": "Generate RTI Application (Sec 6)", "icon": "FileText"},
-            {"id": "draft_notice", "label": f"Generate Legal/Grievance Notice", "icon": "Mail"},
+            {"id": "draft_rti" if matched_cat == "rti_access" else ("draft_notice" if matched_cat in ["tenant_rights", "consumer_rights"] else "draft_notice"), 
+             "label": "Generate RTI Application (Sec 6)" if matched_cat == "rti_access" else "Generate Legal/Grievance Notice", 
+             "icon": "FileText" if matched_cat == "rti_access" else "Mail"},
             {"id": "open_portal", "label": f"Visit Grievance Portal", "url": "https://pgportal.gov.in/", "icon": "ExternalLink"}
         ]
     }

@@ -1,0 +1,46 @@
+{
+  "chunks": [
+    {
+      "category": "pothole",
+      "act_name": "Motor Vehicles Act 1988",
+      "section": "Section 198A",
+      "applicable_states": ["all"],
+      "content": "Road design, construction and maintenance authorities face strict penalties and liability under Section 198A of the Motor Vehicles Act for failing to maintain safe public roads, leading to accidents or hazardous potholes."
+    },
+    {
+      "category": "garbage",
+      "act_name": "Solid Waste Management Rules 2016",
+      "section": "Rule 15",
+      "applicable_states": ["all"],
+      "content": "Local municipal authorities are statutory obligated to establish systems for door-to-door solid waste collection, street sweeping, public sanitation, and clean public toilets. Complaints regarding overflowing garbage must be resolved promptly."
+    },
+    {
+      "category": "water_supply",
+      "act_name": "Jal Jeevan Mission Guidelines",
+      "section": "Clause 4.2",
+      "applicable_states": ["all"],
+      "content": "Safe and potable drinking water is a fundamental right guaranteed under Article 21 of the Constitution. Government water supply boards must maintain pipelines and perform emergency repairs on leakage and sewage contamination."
+    },
+    {
+      "category": "tenant_rights",
+      "act_name": "Model Tenancy Act 2021",
+      "section": "Section 21",
+      "applicable_states": ["all"],
+      "content": "Landlords are prohibited from withholding security deposits without reasonable deduction details. Tenant deposits must be returned within 1 month of tenancy termination. Landlords cannot cutoff essential electricity or water supplies."
+    },
+    {
+      "category": "rti",
+      "act_name": "Right to Information Act 2005",
+      "section": "Section 6(1)",
+      "applicable_states": ["all"],
+      "content": "Any citizen can file a Section 6(1) RTI application to inspect public records, contract tenders, fund utilization reports, and official files. Public Information Officers must reply within 30 days or face penalty."
+    },
+    {
+      "category": "consumer_protection",
+      "act_name": "Consumer Protection Act 2019",
+      "section": "Section 2(9)",
+      "applicable_states": ["all"],
+      "content": "Consumers have the right to seek redressal against unfair trade practices, defective products, fake advertising, or deficiency in e-commerce services. Companies must offer replacements or refunds for faulty products."
+    }
+  ]
+}

@@ -53,12 +53,15 @@ export const ChatNavigator: React.FC<ChatNavigatorProps> = ({
         }),
       });
 
-      if (!res.ok) throw new Error('Failed to analyze prompt');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Failed to analyze prompt');
+      }
       const data: NavigatorResponse = await res.json();
       setResponse(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Chat error:', err);
-      setError('We could not reach the navigator. Please ensure the FastAPI backend is running, then try again.');
+      setError(err.message || 'We could not reach the navigator. Please ensure the FastAPI backend is running, then try again.');
     } finally {
       setLoading(false);
     }

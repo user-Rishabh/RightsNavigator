@@ -12,6 +12,7 @@
   --color-danger: #A0522D;
   --text-primary: #1C1C1C;
   --text-secondary: #5C5A50;
+  --text-muted: #8E8C82;
   --border: #D8D3C4;
 }
 
@@ -26,6 +27,7 @@
   --color-danger: #D97A56;
   --text-primary: #EDEAE3;
   --text-secondary: #9B9B93;
+  --text-muted: #7A808C;
   --border: #2A3040;
 }
 
