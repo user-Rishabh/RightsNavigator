@@ -8,6 +8,16 @@ export default {
   theme: {
     extend: {
       colors: {
+        page: 'var(--bg-page)',
+        surface: 'var(--bg-surface)',
+        primary: 'var(--color-primary)',
+        accent: 'var(--color-accent)',
+        'accent-text': 'var(--color-accent-text)',
+        success: 'var(--color-success)',
+        danger: 'var(--color-danger)',
+        txtprimary: 'var(--text-primary)',
+        txtsecondary: 'var(--text-secondary)',
+        themeborder: 'var(--border)',
         brand: {
           50: '#f0f7ff',
           100: '#e0effe',
