@@ -137,19 +137,19 @@ def init_db():
             "Home",
             "Unlawful eviction notice, security deposit withholding, refusal of urgent repairs, utility cutoff",
             "Model Tenancy Act, 2021 / State Rent Control Act",
-            14,
+            30,
             json.dumps({
                 "urban": {
                     "authority": "Rent Authority / Rent Tribunal / Civil Court",
                     "portal": "State Tenancy Portal / District Collectorate",
                     "helpline": "Legal Aid Helpline 15100",
-                    "compensation_clause": "Landlord cannot cut off essential water/power supply. Unlawful retention of deposit incurs interest penalty."
+                    "compensation_clause": "Landlord cannot cut off essential water/power supply during a deposit dispute (Section 21). The Act does not fix a specific penalty rate for delayed refund - any interest owed depends on the individual lease agreement."
                 },
                 "rural": {
                     "authority": "Tehsildar / Revenue Inspector / District Legal Services Authority (DLSA)",
                     "portal": "NALSA Legal Aid Portal",
                     "helpline": "15100 (Free Legal Aid)",
-                    "compensation_clause": "Model Tenancy Act mandates refund of security deposit within 1 month of vacating."
+                    "compensation_clause": "Landlord cannot cut off essential water/power supply during a deposit dispute (Section 21). The Act does not fix a specific penalty rate for delayed refund - any interest owed depends on the individual lease agreement."
                 }
             })
         ),

@@ -274,7 +274,7 @@ async def analyze_citizen_problem(query: str, pincode: str = "560001") -> dict:
             {
                 "step": 2,
                 "title": "Send Formal Demand Notice for Security Deposit Return",
-                "detail": "Issue 14-day legal notice demanding deposit refund with 18% p.a. interest for illegal delay."
+                "detail": "Issue 30-day formal legal notice demanding deposit refund per Section 21 timeline (interest claims for delay depend on individual lease agreement terms)."
             },
             {
                 "step": 3,
@@ -341,11 +341,14 @@ async def analyze_citizen_problem(query: str, pincode: str = "560001") -> dict:
             sec = f" Sec {c['section']}" if c.get('section') else ""
             citations_list.append(f"{c['act_name']}{sec}")
         unique_citations = sorted(list(set(citations_list)))
-        citation_text = "\n\n**Statutory Citations:**\n" + "\n".join([f"- {cit}" for cit in unique_citations])
+        citation_text = "\n\nStatutory Citations:\n" + "\n".join([f"- {cit}" for cit in unique_citations])
         grounded_summary = answer + citation_text
     except Exception as e:
-        logger.error("Failed to generate grounded response: %s", e)
-        grounded_summary = summary
+        logger.error("Groq generation failed: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to generate guidance right now. Please try again."
+        )
 
     return {
         "query": query,

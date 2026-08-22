@@ -127,7 +127,7 @@ def classify_and_retrieve(query: str, confidence_threshold: float = 0.4) -> dict
     }
 
 def generate_grounded_response(query: str, chunks: list, practical_info: dict) -> str:
-    """Assemble RAG prompt and query Groq Llama-3.3-70b-versatile for grounded generation."""
+    """Assemble RAG prompt and query Groq openai/gpt-oss-120b for grounded generation."""
     client = get_groq_client()
     
     # Format chunks and citations
@@ -149,7 +149,8 @@ def generate_grounded_response(query: str, chunks: list, practical_info: dict) -
         "For every legal right, remedy, or claim you state, you MUST explicitly cite the Act and Section "
         "from the provided excerpts. If the resolution SLA is not explicitly stated in the legal excerpts, "
         "state that it is not defined in the excerpts rather than inventing or referencing external SLAs. "
-        "Do not invent legal clauses, numbers, or details not found in the excerpts."
+        "Do not invent legal clauses, numbers, or details not found in the excerpts. "
+        "Do not use markdown formatting in your response - no asterisks, no double asterisks, no bullet points, no headers. Write in plain prose sentences only, organized into short paragraphs."
     )
 
     user_prompt = f"""Citizen Query: {query}
@@ -174,8 +175,19 @@ Statutory Excerpts:
 
 Generate a detailed 2-3 paragraph answer summarizing the citizen's rights under these acts, citing specific sections, and advising them on how to proceed. End with a clear action summary. Remember to maintain strict grounding constraint."""
 
+    # Generate grounded response using Groq
+    print("=== DEBUG RETRIEVED CHUNKS ===")
+    for c in chunks:
+        print(f"Category: {c.get('category')}, Act: {c.get('act_name')}, Section: {c.get('section')}")
+        print(f"Content: {c.get('content')}")
+        print("-" * 40)
+    print("=== DEBUG FINAL PROMPT ===")
+    print(f"System Prompt:\n{system_prompt}\n")
+    print(f"User Prompt:\n{user_prompt}\n")
+    print("==========================")
+
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
@@ -183,4 +195,6 @@ Generate a detailed 2-3 paragraph answer summarizing the citizen's rights under 
         temperature=0.2,
         max_tokens=1024
     )
-    return response.choices[0].message.content
+    answer = response.choices[0].message.content
+    # Foolproof cleanup of markdown asterisks
+    return answer.replace("**", "").replace("*", "")
