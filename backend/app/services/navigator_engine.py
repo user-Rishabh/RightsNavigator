@@ -2,10 +2,21 @@ import json
 import os
 import httpx
 import logging
+from fastapi import HTTPException
 from app.database import get_db_connection
 from app.services.pincode_service import lookup_pincode
+from app.services.rag import classify_and_retrieve, generate_grounded_response, generate_fallback_response
 
 logger = logging.getLogger("navigator_engine")
+
+ACTIVE_CATEGORIES = {
+    "potholes_roads",
+    "garbage_sanitation",
+    "water_supply",
+    "consumer_rights",
+    "tenant_rights",
+    "rti_access"
+}
 
 # Keyword matcher for quick fallback category detection
 CATEGORY_KEYWORDS = {
@@ -30,15 +41,33 @@ async def generate_ai_navigation(query: str, loc_info: dict) -> dict | None:
     if not api_key:
         return None
 
-    prompt = f"""You are RightsNavigator, an Indian civic-rights assistant. Give tailored, practical guidance for the citizen's exact situation, rather than a generic template.
+    jurisdiction_type = loc_info.get("type", "Urban")
+    local_body = loc_info.get("body", "Municipal Corporation")
+    portal = loc_info.get("portal", "https://pgportal.gov.in/")
+    helpline = loc_info.get("helpline", "1800-11-0001")
+    district = loc_info.get("district", "")
+    state = loc_info.get("state", "India")
 
-Citizen's message: {query}
-Verified location context: district={loc_info['district']}, state={loc_info['state']}, jurisdiction={loc_info['type']}, local body={loc_info['body']}, grievance channel={loc_info['portal']}, helpline={loc_info['helpline']}.
+    prompt = f"""You are RightsNavigator, a plain-language Indian civic-rights AI assistant. A citizen has described a problem. Your job is to:
+1. Identify the governing statutory Act and relevant authority.
+2. State the SLA (statutory response deadline in days).
+3. Adapt advice to the citizen's exact jurisdiction: this citizen is in a {jurisdiction_type} area, served by {local_body} ({district}, {state}).
+4. Give a step-by-step escalation roadmap with precise DOs and DON'Ts.
+5. Mention the correct notice type to generate (RTI Sec 6, Consumer Court, Tenant Demand, Municipal Notice).
 
-Return ONLY valid JSON with this exact schema:
-{{"category_id":"one of potholes_roads,garbage_sanitation,water_supply,consumer_rights,tenant_rights,rti_access,electricity_power,healthcare_patient,labor_workplace,education_rte,cyber_telecom,women_elder_rights,real_estate_rera","category_title":"short tailored title","summary":"2-3 sentence answer specific to the message","applicable_rights":["specific practical right 1","specific practical right 2"],"act_name":"relevant law/rule, or General civic grievance guidance if uncertain","sla_days":7,"compensation_clause":"short cautious note or empty string","steps":[{{"step":1,"title":"...","detail":"..."}},{{"step":2,"title":"...","detail":"..."}},{{"step":3,"title":"...","detail":"..."}}],"dos":["...","..."],"donts":["...","..."]}}
+Citizen's problem: {query}
+Verified jurisdiction: type={jurisdiction_type}, local body={local_body}, district={district}, state={state}, grievance portal={portal}, helpline={helpline}.
 
-Rules: Use plain Indian English. Adapt advice to the stated incident. Do not invent dates, evidence, authorities, legal sections, compensation amounts, or statutory deadlines. Mention emergency services if there is immediate danger or injury. Give exactly 3 steps, 2-4 dos, and 2-4 don'ts. The provided local body and grievance channel are the only verified local contacts; do not replace them."""
+Return ONLY valid JSON — no markdown, no extra text — matching this exact schema:
+{{"category_id":"one of potholes_roads,garbage_sanitation,water_supply,consumer_rights,tenant_rights,rti_access,electricity_power,healthcare_patient,labor_workplace,education_rte,cyber_telecom,women_elder_rights,real_estate_rera","category_title":"concise title for this specific issue","summary":"2-3 sentences explaining the citizen's rights specific to their situation and jurisdiction","applicable_rights":["right 1","right 2","right 3"],"act_name":"Primary governing Act or Rule (e.g. Consumer Protection Act 2019, RTI Act 2005, Solid Waste Management Rules 2016)","sla_days":7,"compensation_clause":"brief note on compensation or penalties if applicable, else empty string","notice_type":"one of rti_application,consumer_court_notice,tenant_deposit_demand,municipal_notice,labor_complaint,none","steps":[{{"step":1,"title":"Step title","detail":"Detailed actionable instruction specific to this problem and location"}},{{"step":2,"title":"Step title","detail":"Detailed actionable instruction"}},{{"step":3,"title":"Step title","detail":"Detailed actionable instruction including escalation path"}}],"dos":["DO specific action 1","DO specific action 2","DO specific action 3"],"donts":["DON'T specific warning 1","DON'T specific warning 2"]}}
+
+Critical rules:
+- Use plain, simple Indian English that any citizen can understand.
+- Tailor EVERY field to the specific problem described — no generic templates.
+- Do NOT invent statutory deadlines, compensation figures, or case-law citations.
+- If there is danger to life, mention emergency contacts first.
+- The local body, portal, and helpline above are the ONLY verified contacts — use them exactly as provided.
+- Give exactly 3 steps, 2-4 dos, 2-3 don'ts."""
     try:
         async with httpx.AsyncClient(timeout=25.0) as client:
             response = await client.post(
@@ -73,7 +102,7 @@ Rules: Use plain Indian English. Adapt advice to the stated incident. Do not inv
             "category_id": category_id,
             "category_title": str(guidance["category_title"]),
             "summary": str(guidance["summary"]),
-            "applicable_rights": [str(right) for right in guidance.get("applicable_rights", [])[:4]] if isinstance(guidance.get("applicable_rights", []), list) else [],
+            "applicable_rights": [str(r) for r in guidance.get("applicable_rights", [])[:4]] if isinstance(guidance.get("applicable_rights"), list) else [],
             "location": {
                 "pincode": loc_info["pincode"], "state": loc_info["state"],
                 "district": loc_info["district"], "taluka": loc_info["taluka"],
@@ -83,252 +112,115 @@ Rules: Use plain Indian English. Adapt advice to the stated incident. Do not inv
             "act_name": str(guidance["act_name"]),
             "sla_days": max(1, min(int(guidance["sla_days"]), 365)),
             "compensation_clause": str(guidance["compensation_clause"]),
-            "steps": guidance["steps"], "dos": guidance["dos"], "donts": guidance["donts"],
-            "action_buttons": [], "source": "gemini",
+            "notice_type": str(guidance.get("notice_type", "none")),
+            "steps": guidance["steps"],
+            "dos": guidance["dos"],
+            "donts": guidance["donts"],
+            "action_buttons": [],
+            "source": "gemini",
         }
     except (httpx.HTTPError, KeyError, ValueError, TypeError, json.JSONDecodeError, OverflowError) as exc:
         logger.warning("Gemini navigation generation failed: %s", exc)
         return None
 
 async def analyze_citizen_problem(query: str, pincode: str = "560001") -> dict:
-    query_lower = query.lower()
-    
     # 1. Fetch location details
     loc_info = await lookup_pincode(pincode)
-    is_rural = loc_info["type"] == "Rural"
+    user_state = loc_info.get("state", "all")
 
-    # Use a model-generated answer whenever Gemini is configured. The rules below
-    # remain a safe offline fallback if the model is unavailable.
-    ai_response = await generate_ai_navigation(query, loc_info)
-    if ai_response:
-        return ai_response
+    # ── PRIMARY PATH: Gemini 2.5 Flash ──────────────────────────────────────
+    # Gemini handles ALL categories — not just the 6 RAG-indexed ones.
+    # It returns a structured JSON roadmap with steps, DOs, DON'Ts, SLA, act.
+    gemini_result = await generate_ai_navigation(query, loc_info)
 
-    # 2. Determine category
-    matched_cat = "potholes_roads"  # default
-    max_score = 0
+    if gemini_result:
+        notice_type = gemini_result.get("notice_type", "none")
+        NOTICE_LABELS = {
+            "rti_application": ("draft_rti", "Generate RTI Application (Sec 6)", "FileText"),
+            "consumer_court_notice": ("draft_consumer", "Generate Consumer Court Notice", "Scale"),
+            "tenant_deposit_demand": ("draft_tenant", "Generate Tenant Deposit Demand Letter", "Home"),
+            "municipal_notice": ("draft_notice", "Generate Municipal Grievance Notice", "Mail"),
+            "labor_complaint": ("draft_labor", "Generate Labour Complaint Letter", "Briefcase"),
+        }
+        btn_id, btn_label, btn_icon = NOTICE_LABELS.get(notice_type, ("draft_notice", "Generate Legal/Grievance Notice", "Mail"))
+        return {
+            **gemini_result,
+            "action_buttons": [
+                {"id": btn_id, "label": btn_label, "icon": btn_icon},
+                {
+                    "id": "open_portal",
+                    "label": "Visit Grievance Portal",
+                    "url": loc_info.get("portal", "https://pgportal.gov.in/"),
+                    "icon": "ExternalLink"
+                }
+            ],
+            "grounded": True
+        }
 
-    for cat_id, keywords in CATEGORY_KEYWORDS.items():
-        score = sum(1 for kw in keywords if kw in query_lower)
-        if score > max_score:
-            max_score = score
-            matched_cat = cat_id
+    # ── FALLBACK PATH: keyword match + static template ───────────────────────
+    # Only reached if Gemini API key is missing or the call fails.
+    query_lower = query.lower()
 
-    # 3. Retrieve database category knowledge
+    matched_cat = "rti_access"  # safe default
+    for cat, keywords in CATEGORY_KEYWORDS.items():
+        if any(kw in query_lower for kw in keywords):
+            matched_cat = cat
+            break
+
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM categories WHERE id = ?", (matched_cat,))
     cat_row = cursor.fetchone()
     conn.close()
 
-    if not cat_row:
-        act_name = "Indian Citizen Protection Acts"
-        sla_days = 7
-        rules = {}
-    else:
+    is_rural = loc_info["type"] == "Rural"
+    if cat_row:
         act_name = cat_row["act_name"]
         sla_days = cat_row["default_sla_days"]
         rules = json.loads(cat_row["rules_json"])
+    else:
+        act_name = "Indian Citizen Protection Acts"
+        sla_days = 7
+        rules = {}
 
     loc_key = "rural" if is_rural else "urban"
     specific_rule = rules.get(loc_key, {})
-
     target_authority = specific_rule.get("authority", loc_info["body"])
     portal_link = specific_rule.get("portal", loc_info["portal"])
     helpline = specific_rule.get("helpline", loc_info["helpline"])
     compensation_clause = specific_rule.get("compensation_clause", "")
 
-    # Build context-aware steps and DOs/DONTs
-    if matched_cat == "potholes_roads":
-        title = "Road Repair & Pothole Hazard Redressal"
-        summary = f"Under the {act_name}, road authorities are legally mandated to keep public roads motorable and safe."
-        steps = [
-            {
-                "step": 1,
-                "title": "Document & Geo-Tag Proof",
-                "detail": "Take 3 clear photos/videos of the pothole showing nearby landmarks and depth. Note exact location/cross-street."
-            },
-            {
-                "step": 2,
-                "title": f"Submit Formal Grievance to {target_authority}",
-                "detail": f"File complaint on {portal_link} or call Helpline {helpline}. Demand reference ticket number."
-            },
-            {
-                "step": 3,
-                "title": f"Escalate if Unresolved after {sla_days} Days",
-                "detail": f"If no action within {sla_days} days under State Right to Services Act, file Section 6(1) RTI to inspect road repair tenders."
-            }
-        ]
-        dos = [
-            "DO take photos with timestamp and GPS coordinates enabled.",
-            "DO quote previous accident occurrences or risk to senior citizens/riders.",
-            "DO keep medical bills or repair receipts if you suffered injury or vehicle damage."
-        ]
-        donts = [
-            "DON'T attempt unofficial temporary repairs that alter public property without notice.",
-            "DON'T close the complaint ticket until physical verification of asphalt repair is completed.",
-            "DON'T pay any bribe or informal charges to municipal road workers."
-        ]
+    # Generic 3-step template
+    steps = [
+        {"step": 1, "title": "Document Your Issue", "detail": "Photograph or video the problem with timestamp and GPS enabled. Note exact location, date, and impact."},
+        {"step": 2, "title": f"File Complaint with {target_authority}", "detail": f"Submit via {portal_link} or helpline {helpline}. Keep the complaint reference number."},
+        {"step": 3, "title": f"Escalate if Unresolved in {sla_days} Days", "detail": "File an RTI under Section 6(1) RTI Act 2005 to inspect related government records if there is no action."}
+    ]
+    dos = ["DO keep copies of all evidence and complaint receipts.", "DO follow up in writing (email/post) to create a paper trail."]
+    donts = ["DON'T pay unofficial fees or bribes to officials.", "DON'T close the complaint until the issue is physically resolved."]
 
-    elif matched_cat == "garbage_sanitation":
-        title = "Garbage Collection & Public Hygiene Entitlement"
-        summary = f"Under Solid Waste Management Rules 2016, local authorities must ensure door-to-door collection and clean public spaces."
-        steps = [
-            {
-                "step": 1,
-                "title": "Photograph Waste Accumulation",
-                "detail": "Capture images of uncollected garbage or open sewage causing health hazard."
-            },
-            {
-                "step": 2,
-                "title": f"Lodge Complaint with {target_authority}",
-                "detail": f"Submit ticket via {portal_link} or call {helpline} (Swachh Bharat Toll-Free)."
-            },
-            {
-                "step": 3,
-                "title": "Escalate to Health Officer / BDO",
-                "detail": f"If unresolved within {sla_days} days, submit written petition to Ward Sanitary Inspector / BDO."
-            }
-        ]
-        dos = [
-            "DO request neighbors to join in co-signing a joint civic petition for higher impact.",
-            "DO mention public health threat (mosquito breeding, disease hazard)."
-        ]
-        donts = [
-            "DON'T burn garbage in open public areas (violates NGT environmental norms).",
-            "DON'T dump waste in unauthorized storm drains."
-        ]
-
-    elif matched_cat == "water_supply":
-        title = "Clean Water Supply & Pipeline Leakage Rights"
-        summary = "Right to safe, unadulterated drinking water is protected as a basic fundamental right under Article 21 of the Indian Constitution."
-        steps = [
-            {
-                "step": 1,
-                "title": "Collect Water Sample & Photo Proof",
-                "detail": "Fill a clear glass bottle with contaminated tap water and take a clear video showing source."
-            },
-            {
-                "step": 2,
-                "title": f"Report Urgent Defect to {target_authority}",
-                "detail": f"Register emergency ticket at {portal_link} or emergency helpline {helpline}."
-            },
-            {
-                "step": 3,
-                "title": "Demand Water Quality Test & Pipeline Inspection",
-                "detail": f"Mandated SLA response time is {sla_days} days under Public Health guidelines."
-            }
-        ]
-        dos = [
-            "DO demand official water purity test report from the municipal water testing laboratory.",
-            "DO keep receipts if you had to purchase private water tankers due to municipal supply failure."
-        ]
-        donts = [
-            "DON'T consume murky or foul-smelling tap water without boiling/purification.",
-            "DON'T tamper with main water distribution supply pipelines yourself."
-        ]
-
-    elif matched_cat == "consumer_rights":
-        title = "Consumer Protection & Deficiency of Service"
-        summary = "Under Consumer Protection Act 2019, citizens are entitled to full refund, replacement, and monetary compensation for defective goods or unfair trade practices."
-        steps = [
-            {
-                "step": 1,
-                "title": "Issue 15-Day Written Legal Notice",
-                "detail": "Send formal notice to seller/manufacturer giving them 15 days to refund/replace or face court action."
-            },
-            {
-                "step": 2,
-                "title": "Lodge Grievance at National Consumer Helpline (NCH)",
-                "detail": f"Register at {portal_link} or call {helpline} (1915). Most companies settle at NCH stage."
-            },
-            {
-                "step": 3,
-                "title": "File E-Daakhil Complaint at District Consumer Commission",
-                "detail": f"If unresolved after 15 days, file zero-fee online claim at E-Daakhil. Claim refund + compensation for harassment."
-            }
-        ]
-        dos = [
-            "DO preserve tax invoice, order confirmation, chat transcripts, and payment receipts.",
-            "DO record unboxing videos for high-value e-commerce orders."
-        ]
-        donts = [
-            "DON'T delay filing beyond 2 years from date of cause of action (limitation period under CPA 2019).",
-            "DON'T return original physical receipts—send copies and preserve originals."
-        ]
-
-    elif matched_cat == "tenant_rights":
-        title = "Tenant Protection & Deposit Recovery Rights"
-        summary = "Under Model Tenancy Act 2021 & Rent Control Laws, landlords cannot arbitrarily withhold security deposits, disconnect utilities, or unlawfully evict."
-        steps = [
-            {
-                "step": 1,
-                "title": "Review Registered Lease Agreement & Move-Out Proof",
-                "detail": "Ensure you gave proper written notice per agreement and have video of vacant flat condition."
-            },
-            {
-                "step": 2,
-                "title": "Send Formal Demand Notice for Security Deposit Return",
-                "detail": "Issue 14-day legal notice demanding deposit refund with 18% p.a. interest for illegal delay."
-            },
-            {
-                "step": 3,
-                "title": f"Petition {target_authority}",
-                "detail": f"File petition before Rent Authority / Civil Court or approach Legal Aid ({helpline})."
-            }
-        ]
-        dos = [
-            "DO communicate via written email/WhatsApp messages to build legal paper trail.",
-            "DO take full walkthrough video of property on the day of handing over keys."
-        ]
-        donts = [
-            "DON'T vacate flat without receiving written acknowledgement of key handover.",
-            "DON'T accept verbal promises for deposit refund after move-out."
-        ]
-
-    else: # rti_access
-        title = "Right to Information (RTI) File Inspection"
-        summary = "RTI Act 2005 empowers any citizen to inspect public records, road work tenders, attendance registers, and official sanction files."
-        steps = [
-            {
-                "step": 1,
-                "title": "Draft Section 6(1) RTI Questions",
-                "detail": "Formulate 3-4 specific, factual questions regarding project budget, sanction officer, and delay reason."
-            },
-            {
-                "step": 2,
-                "title": f"Submit Application to PIO at {target_authority}",
-                "detail": f"File online via {portal_link} or submit physical letter with Rs 10 IPO/Stamp (Free for BPL)."
-            },
-            {
-                "step": 3,
-                "title": "First Appeal if Information Refused / Delayed 30 Days",
-                "detail": "If PIO does not reply in 30 days, file First Appeal under Sec 19(1). PIO faces Rs 250/day penalty under Sec 20."
-            }
-        ]
-        dos = [
-            "DO ask for certified copies of documents and site inspection records.",
-            "DO keep proof of postal delivery (Registered Post AD receipt)."
-        ]
-        donts = [
-            "DON'T ask for opinions or 'why' questions—ask for records, file notes, and copies.",
-            "DON'T exceed 500 words per RTI application."
-        ]
+    title = (cat_row["name"] if cat_row else matched_cat.replace("_", " ").title())
+    summary = (
+        f"Based on your description, this appears to relate to {title}. "
+        f"The relevant authority is {target_authority}. "
+        f"Under {act_name}, they are required to respond within {sla_days} days. "
+        "Use the steps below to escalate your grievance effectively."
+    )
 
     return {
         "query": query,
         "category_id": matched_cat,
         "category_title": title,
         "summary": summary,
-        "applicable_rights": [f"Right to pursue a grievance with {target_authority}", "Right to retain evidence and request a written response"],
+        "applicable_rights": [
+            f"Right to file a grievance with {target_authority}",
+            "Right to request a written acknowledgement and reference number"
+        ],
         "location": {
-            "pincode": loc_info["pincode"],
-            "state": loc_info["state"],
-            "district": loc_info["district"],
-            "taluka": loc_info["taluka"],
-            "type": loc_info["type"],
-            "authority": target_authority,
-            "portal": portal_link,
-            "helpline": helpline
+            "pincode": loc_info["pincode"], "state": loc_info["state"],
+            "district": loc_info["district"], "taluka": loc_info["taluka"],
+            "type": loc_info["type"], "authority": target_authority,
+            "portal": portal_link, "helpline": helpline
         },
         "act_name": act_name,
         "sla_days": sla_days,
@@ -337,8 +229,9 @@ async def analyze_citizen_problem(query: str, pincode: str = "560001") -> dict:
         "dos": dos,
         "donts": donts,
         "action_buttons": [
-            {"id": "draft_rti", "label": "Generate RTI Application (Sec 6)", "icon": "FileText"},
-            {"id": "draft_notice", "label": f"Generate Legal/Grievance Notice", "icon": "Mail"},
-            {"id": "open_portal", "label": f"Visit Grievance Portal", "url": "https://pgportal.gov.in/", "icon": "ExternalLink"}
-        ]
+            {"id": "draft_notice", "label": "Generate Legal/Grievance Notice", "icon": "Mail"},
+            {"id": "open_portal", "label": "Visit Grievance Portal", "url": "https://pgportal.gov.in/", "icon": "ExternalLink"}
+        ],
+        "grounded": False,
+        "source": "keyword_fallback"
     }

@@ -78,6 +78,41 @@ async def pincode_lookup(pincode: str, locality: str = "", is_village: bool = Fa
 async def location_search(q: str = Query(..., min_length=2, max_length=100)):
     return {"suggestions": await search_locations(q)}
 
+@router.get("/locations/reverse-geocode")
+async def reverse_geocode(lat: float, lon: float):
+    import httpx
+    import logging
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                "https://nominatim.openstreetmap.org/reverse",
+                params={"lat": lat, "lon": lon, "format": "jsonv2", "addressdetails": 1},
+                headers={"User-Agent": "RightsNavigator/1.0 (civic location search)"}
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                address = data.get("address", {})
+                pincode = address.get("postcode", "").split("-")[0].strip()
+                if pincode and pincode.isdigit() and len(pincode) == 6:
+                    name = address.get("suburb") or address.get("neighbourhood") or address.get("road") or address.get("city") or "Detected Area"
+                    area_parts = []
+                    for key in ("city", "town", "district", "state"):
+                        val = address.get(key)
+                        if val and val not in area_parts and val != name:
+                            area_parts.append(val)
+                    area = ", ".join(area_parts)
+                    return {
+                        "status": "success",
+                        "pincode": pincode,
+                        "name": name,
+                        "area": area,
+                        "is_village": bool(address.get("village") or address.get("hamlet"))
+                    }
+    except Exception as e:
+        logging.warning("Reverse geocode failed: %s", e)
+    
+    raise HTTPException(status_code=400, detail="Could not resolve location. Please enter your PIN code manually.")
+
 @router.post("/navigator/chat")
 async def chat_navigator(req: ChatRequest):
     if not req.query or len(req.query.strip()) < 2:

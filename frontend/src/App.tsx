@@ -16,7 +16,13 @@ export const App: React.FC = () => {
   const [caseCount, setCaseCount] = useState(0);
   const [suggestedPrompt, setSuggestedPrompt] = useState('');
   const [navigationRequest, setNavigationRequest] = useState(0);
-  const [isLightMode, setIsLightMode] = useState(() => localStorage.getItem('rights-navigator-theme') === 'light');
+  const [isLightMode, setIsLightMode] = useState(() => {
+    const savedTheme = localStorage.getItem('rights-navigator-theme');
+    if (savedTheme) {
+      return savedTheme === 'light';
+    }
+    return window.matchMedia('(prefers-color-scheme: light)').matches;
+  });
 
   // Document Draft Modal State
   const [showDraftModal, setShowDraftModal] = useState(false);
@@ -37,7 +43,18 @@ export const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('rights-navigator-theme', isLightMode ? 'light' : 'dark');
+    const root = document.documentElement;
+    if (isLightMode) {
+      root.classList.remove('dark');
+      root.classList.add('light');
+      root.setAttribute('data-theme', 'light');
+      localStorage.setItem('rights-navigator-theme', 'light');
+    } else {
+      root.classList.remove('light');
+      root.classList.add('dark');
+      root.setAttribute('data-theme', 'dark');
+      localStorage.setItem('rights-navigator-theme', 'dark');
+    }
   }, [isLightMode]);
 
   const handleOpenDraftModal = (docType: string, prefillData: any) => {
@@ -57,7 +74,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col bg-[#050505] text-slate-100 font-sans selection:bg-blue-600 selection:text-white ${isLightMode ? 'light-theme' : ''}`}>
+    <div className="min-h-screen flex flex-col bg-page text-txtprimary font-sans selection:bg-accent selection:text-page transition-colors duration-200">
       {/* Navigation Header */}
       <Header
         activeTab={activeTab}
