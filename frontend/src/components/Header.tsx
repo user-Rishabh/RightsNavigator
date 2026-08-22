@@ -1,10 +1,10 @@
 import React from 'react';
-import { Scale, MapPin, FileCheck, Layers, Users, Sparkles, Moon, Sun } from 'lucide-react';
+import { Scale, MapPin, FileCheck, Layers, Users, Sparkles, Moon, Sun, Award } from 'lucide-react';
 import { PincodeInfo } from '../types';
 
 interface HeaderProps {
-  activeTab: 'chat' | 'catalog' | 'cases';
-  setActiveTab: (tab: 'chat' | 'catalog' | 'cases') => void;
+  activeTab: 'chat' | 'catalog' | 'cases' | 'schemes';
+  setActiveTab: (tab: 'chat' | 'catalog' | 'cases' | 'schemes') => void;
   pincodeInfo: PincodeInfo | null;
   onOpenPincodeModal: () => void;
   caseCount: number;
@@ -71,6 +71,18 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Layers className="w-4 h-4" />
               <span>Rights Catalog</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('schemes')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === 'schemes'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <Award className="w-4 h-4" />
+              <span>Eligible Schemes</span>
             </button>
 
             <button

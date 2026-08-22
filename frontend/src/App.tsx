@@ -4,12 +4,13 @@ import { PincodeWidget } from './components/PincodeWidget';
 import { ChatNavigator } from './components/ChatNavigator';
 import { RightsCatalog } from './components/RightsCatalog';
 import { CaseTracker } from './components/CaseTracker';
+import { EligibleSchemes } from './components/EligibleSchemes';
 import { DocumentModal } from './components/DocumentModal';
 import { Footer } from './components/Footer';
 import { PincodeInfo } from './types';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'chat' | 'catalog' | 'cases'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'catalog' | 'cases' | 'schemes'>('chat');
   const [pincodeInfo, setPincodeInfo] = useState<PincodeInfo | null>(null);
   const [showPincodeModal, setShowPincodeModal] = useState(false);
   const [caseCount, setCaseCount] = useState(0);
@@ -83,6 +84,10 @@ export const App: React.FC = () => {
 
         {activeTab === 'catalog' && (
           <RightsCatalog onSelectCategory={handleSelectCatalogCategory} />
+        )}
+
+        {activeTab === 'schemes' && (
+          <EligibleSchemes pincodeInfo={pincodeInfo} />
         )}
 
         {activeTab === 'cases' && (
